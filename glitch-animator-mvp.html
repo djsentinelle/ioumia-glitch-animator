@@ -1454,6 +1454,92 @@ function stopAnim() {
   }
 }
 
+// ── Shared result object — avoids per-particle heap allocation ────
+const _ar = { x: 0, y: 0, life: 1, isRgb: false };
+let _pixelSortTick = 0;
+
+function applyMode(m, p, t) {
+  const w = mainCanvas.width, h = mainCanvas.height;
+  _ar.x = p.x; _ar.y = p.y; _ar.life = p.life; _ar.isRgb = false;
+
+  if (m === 'sparkle') {
+    const sparkleRadius = fx.sparkle.radius * 0.6;
+    const spd2 = fx.sparkle.speed / 4;
+    _ar.x = p.ox + (Math.random() - 0.5) * sparkleRadius;
+    _ar.y = p.oy + (Math.random() - 0.5) * sparkleRadius;
+    _ar.life = 0.3 + 0.7 * Math.abs(Math.sin(frame * spd2 * p.speed * 0.05 + p.phase));
+
+  } else if (m === 'drift') {
+    const dSpd = fx.drift.speed / 4;
+    const dAmp = fx.drift.amp;
+    const dt = frame * dSpd * p.speed * 0.02 + p.phase;
+    _ar.x = p.ox + Math.sin(dt) * dAmp;
+    _ar.y = p.oy + Math.cos(dt * 0.7) * dAmp * 0.75;
+    _ar.life = 0.5 + 0.5 * Math.sin(dt);
+
+  } else if (m === 'pulse') {
+    const pSpd   = fx.pulse.speed / 4;
+    const pScale = fx.pulse.scale / 100;
+    const pt = frame * pSpd * 0.01;
+    const scale = 1 + Math.sin(pt * 0.5) * pScale;
+    _ar.x = p.ox * scale + (w * (1 - scale)) / 2;
+    _ar.y = p.oy * scale + (h * (1 - scale)) / 2;
+    _ar.life = 0.4 + 0.6 * Math.abs(Math.sin(pt));
+
+  } else if (m === 'rain') {
+    if (p.rainY === undefined) p.rainY = p.oy + Math.random() * (h - p.oy);
+    const rainSpd = fx.rain.speed / 4;
+    const rainOpacity = fx.rain.opacity / 10;
+    p.rainY += rainSpd * 1.5 * p.speed;
+    if (p.rainY > h + 10) p.rainY = p.oy;
+    _ar.x = p.ox + (Math.random() - 0.5) * 0.8;
+    _ar.y = p.rainY;
+    const distFromOrigin = Math.max(0, p.rainY - p.oy) / (h - p.oy + 1);
+    _ar.life = Math.max(0.05, (1 - distFromOrigin) * rainOpacity * 1.8);
+
+  } else if (m === 'explode') {
+    const cx = w / 2, cy = h / 2;
+    const dx = p.ox - cx, dy = p.oy - cy;
+    const et = (frame * fx.explode.speed * 0.003) % 1;
+    const scale = 1 + et * fx.explode.force * 0.4;
+    _ar.x = cx + dx * scale;
+    _ar.y = cy + dy * scale;
+    _ar.life = Math.max(0, 1 - et * 1.4);
+
+  } else if (m === 'rgb') {
+    const rSpd = fx.rgb.speed / 4;
+    const rt = frame * rSpd * p.speed * 0.02;
+    _ar.x = p.ox + Math.sin(rt * 1.5) * fx.rgb.spread;
+    _ar.y = p.oy;
+    _ar.life = 0.6 + 0.4 * Math.abs(Math.sin(rt * 3));
+    _ar.isRgb = true;
+
+  } else if (m === 'blow') {
+    const blowForce = fx.blow.force / 10;
+    const dx = p.ox - cursor.x, dy = p.oy - cursor.y;
+    const distSq = dx * dx + dy * dy;
+    const chaosAmt = fx.blow.chaos / 10;
+    const noise = Math.sin(p.phase * 13.7) * 0.6 + Math.sin(p.phase * 7.3) * 0.4;
+    const blowRadius = fx.blow.radius * (1 + chaosAmt * noise * 2);
+    if (distSq < blowRadius * blowRadius && distSq > 0) {
+      const dist = Math.sqrt(distSq);
+      const force = (1 - dist / blowRadius) * blowRadius * 0.5 * blowForce;
+      p.vx += (dx / dist) * force * 0.15;
+      p.vy += (dy / dist) * force * 0.15;
+    }
+    p.vx += (p.ox - p.x) * 0.08;
+    p.vy += (p.oy - p.y) * 0.08;
+    p.vx *= 0.75;
+    p.vy *= 0.75;
+    _ar.x = p.x + p.vx;
+    _ar.y = p.y + p.vy;
+    p.x = _ar.x; p.y = _ar.y;
+    _ar.life = 0.6 + 0.4 * Math.abs(Math.sin(t * 2 + p.phase));
+  }
+
+  return _ar;
+}
+
 // ── Animation loop ─────────────────────────────────────────────────
 function loop() {
   animId = requestAnimationFrame(loop);
@@ -1494,7 +1580,8 @@ function loop() {
   }
 
   // ── Pixel Sort ────────────────────────────────────────────────────
-  if (pixelSortActive) {
+  _pixelSortTick++;
+  if (pixelSortActive && _pixelSortTick % 3 === 0) {
     const imgData = mCtx.getImageData(0, 0, w, h);
     const d = imgData.data;
     // Pick random rows and sort contiguous bright segments within them
@@ -1561,155 +1648,59 @@ function loop() {
   // ── Draw particles ─────────────────────────────────────────────
   gCtx.clearRect(0, 0, w, h);
 
-  const subset = particles.length > 20000
-    ? particles.filter((_, i) => i % Math.ceil(particles.length / 20000) === 0)
-    : particles;
-
+  const stride = particles.length > 20000 ? Math.ceil(particles.length / 20000) : 1;
   const pSize = settings.size * 0.8;
-
-  // ── Helper: apply one mode's transform to a particle copy ─────────
-  function applyMode(m, p, t) {
-    // Returns {x, y, life, isRgb} without mutating original state fields
-    let x = p.x, y = p.y, life = p.life;
-    let isRgb = false;
-
-    if (m === 'sparkle') {
-      const sparkleRadius = fx.sparkle.radius * 0.6;
-      const spd2 = fx.sparkle.speed / 4;
-      x = p.ox + (Math.random() - 0.5) * sparkleRadius;
-      y = p.oy + (Math.random() - 0.5) * sparkleRadius;
-      life = 0.3 + 0.7 * Math.abs(Math.sin(frame * spd2 * p.speed * 0.05 + p.phase));
-
-    } else if (m === 'drift') {
-      const dSpd = fx.drift.speed / 4;
-      const dAmp = fx.drift.amp;
-      const dt = frame * dSpd * p.speed * 0.02 + p.phase;
-      x = p.ox + Math.sin(dt) * dAmp;
-      y = p.oy + Math.cos(dt * 0.7) * dAmp * 0.75;
-      life = 0.5 + 0.5 * Math.sin(dt);
-
-    } else if (m === 'pulse') {
-      const pSpd   = fx.pulse.speed / 4;
-      const pScale = fx.pulse.scale / 100;
-      const pt = frame * pSpd * 0.01;
-      const scale = 1 + Math.sin(pt * 0.5) * pScale;
-      x = p.ox * scale + (w * (1 - scale)) / 2;
-      y = p.oy * scale + (h * (1 - scale)) / 2;
-      life = 0.4 + 0.6 * Math.abs(Math.sin(pt));
-
-    } else if (m === 'rain') {
-      if (p.rainY === undefined) {
-        p.rainY = p.oy + Math.random() * (h - p.oy);
-      }
-      const rainSpd = fx.rain.speed / 4;
-      const rainOpacity = fx.rain.opacity / 10;
-      p.rainY += rainSpd * 1.5 * p.speed;
-      if (p.rainY > h + 10) p.rainY = p.oy;
-      x = p.ox + (Math.random() - 0.5) * 0.8;
-      y = p.rainY;
-      const distFromOrigin = Math.max(0, p.rainY - p.oy) / (h - p.oy + 1);
-      life = Math.max(0.05, (1 - distFromOrigin) * rainOpacity * 1.8);
-
-    } else if (m === 'explode') {
-      const cx = w / 2, cy = h / 2;
-      const dx = p.ox - cx;
-      const dy = p.oy - cy;
-      // Single global sawtooth t shared by all particles — no per-particle stagger
-      // All particles fly out together and reset together
-      const t = (frame * fx.explode.speed * 0.003) % 1;
-      const scale = 1 + t * fx.explode.force * 0.4;
-      x = cx + dx * scale;
-      y = cy + dy * scale;
-      // Bright at start, linear fade-out so particles vanish before the snap-reset
-      life = Math.max(0, 1 - t * 1.4);
-
-    } else if (m === 'rgb') {
-      const rSpd = fx.rgb.speed / 4;
-      const rSpread = fx.rgb.spread;
-      const rt = frame * rSpd * p.speed * 0.02;
-      x = p.ox + Math.sin(rt * 1.5) * rSpread;
-      y = p.oy;
-      life = 0.6 + 0.4 * Math.abs(Math.sin(rt * 3));
-      isRgb = true;
-
-    } else if (m === 'blow') {
-      const blowForce = fx.blow.force / 10;
-      const dx = p.ox - cursor.x;
-      const dy = p.oy - cursor.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      // Chaos deforms the circle: each particle has a unique radius offset driven by its phase
-      const chaosAmt = fx.blow.chaos / 10;
-      const noise = Math.sin(p.phase * 13.7) * 0.6 + Math.sin(p.phase * 7.3) * 0.4;
-      const blowRadius = fx.blow.radius * (1 + chaosAmt * noise * 2);
-      if (dist < blowRadius && dist > 0) {
-        const force = (1 - dist / blowRadius) * blowRadius * 0.5 * blowForce;
-        p.vx += (dx / dist) * force * 0.15;
-        p.vy += (dy / dist) * force * 0.15;
-      }
-      // Spring back to origin
-      p.vx += (p.ox - p.x) * 0.08;
-      p.vy += (p.oy - p.y) * 0.08;
-      // Damping
-      p.vx *= 0.75;
-      p.vy *= 0.75;
-      x = p.x + p.vx;
-      y = p.y + p.vy;
-      // Persist position for next frame
-      p.x = x;
-      p.y = y;
-      life = 0.6 + 0.4 * Math.abs(Math.sin(t * 2 + p.phase));
-    }
-
-    return { x, y, life, isRgb };
-  }
 
   // ── Draw each active mode as a separate pass ─────────────────────
   const modeList = [...activeModes];
-  const alphaPerMode = 1 / modeList.length; // blend when stacked
+
+  // Cache last canvas state to skip redundant property writes
+  let _lastStyle = '';
+  let _lastAlpha = -1;
 
   for (const m of modeList) {
-    for (const p of subset) {
+    for (let _pi = 0; _pi < particles.length; _pi += stride) {
+      const p = particles[_pi];
       const t = frame * spd * p.speed + p.phase;
       const { x, y, life, isRgb } = applyMode(m, p, t);
 
       const alpha = Math.min(1, life * (p.a / 255) * (modeList.length > 1 ? 0.75 : 1));
       if (alpha < 0.05) continue;
 
-      gCtx.globalAlpha = alpha;
-
       if (isRgb) {
         const rOff = fx.rgb.spread * 0.7;
-        gCtx.fillStyle = `rgb(255,${p.g},${p.b})`;
+        if (alpha !== _lastAlpha) { gCtx.globalAlpha = alpha; _lastAlpha = alpha; }
+        const s1 = `rgb(255,${p.g},${p.b})`;
+        if (s1 !== _lastStyle) { gCtx.fillStyle = s1; _lastStyle = s1; }
         gCtx.fillRect(x - rOff, p.oy, pSize, pSize);
-        gCtx.fillStyle = `rgb(${p.r},255,${p.b})`;
+        const s2 = `rgb(${p.r},255,${p.b})`;
+        if (s2 !== _lastStyle) { gCtx.fillStyle = s2; _lastStyle = s2; }
         gCtx.fillRect(x, p.oy, pSize, pSize);
-        gCtx.fillStyle = `rgb(${p.r},${p.g},255)`;
+        const s3 = `rgb(${p.r},${p.g},255)`;
+        if (s3 !== _lastStyle) { gCtx.fillStyle = s3; _lastStyle = s3; }
         gCtx.fillRect(x + rOff, p.oy, pSize, pSize);
       } else {
-        // Blend particle color toward tint color (mix, not add — works on dark pixels)
         const pBright = (p.r + p.g + p.b) / 3;
         let pr = p.r, pg = p.g, pb = p.b;
         if (pBright <= 200 && (tint.r !== 0 || tint.g !== 0 || tint.b !== 0)) {
           const strength = Math.min(1, Math.max(Math.abs(tint.r), Math.abs(tint.g), Math.abs(tint.b)) / 255);
-          // screen blend for positive tint, multiply for negative
           const tr = tint.r >= 0 ? 255 - (255 - p.r) * (255 - tint.r) / 255 : p.r * (255 + tint.r) / 255;
           const tg = tint.g >= 0 ? 255 - (255 - p.g) * (255 - tint.g) / 255 : p.g * (255 + tint.g) / 255;
           const tb = tint.b >= 0 ? 255 - (255 - p.b) * (255 - tint.b) / 255 : p.b * (255 + tint.b) / 255;
-          pr = Math.round(p.r + (tr - p.r) * strength);
-          pg = Math.round(p.g + (tg - p.g) * strength);
-          pb = Math.round(p.b + (tb - p.b) * strength);
-          pr = Math.max(0, Math.min(255, pr));
-          pg = Math.max(0, Math.min(255, pg));
-          pb = Math.max(0, Math.min(255, pb));
+          pr = Math.max(0, Math.min(255, Math.round(p.r + (tr - p.r) * strength)));
+          pg = Math.max(0, Math.min(255, Math.round(p.g + (tg - p.g) * strength)));
+          pb = Math.max(0, Math.min(255, Math.round(p.b + (tb - p.b) * strength)));
         }
-        // Glow
-        gCtx.globalAlpha = alpha * 0.25;
-        gCtx.fillStyle = `rgb(${pr},${pg},${pb})`;
+        const style = `rgb(${pr},${pg},${pb})`;
+        // Glow pass
+        const glowAlpha = alpha * 0.25;
+        if (glowAlpha !== _lastAlpha) { gCtx.globalAlpha = glowAlpha; _lastAlpha = glowAlpha; }
+        if (style !== _lastStyle) { gCtx.fillStyle = style; _lastStyle = style; }
         gCtx.fillRect(x - 1, y - 1, pSize + 2, pSize + 2);
-        gCtx.globalAlpha = alpha;
-        gCtx.fillStyle = `rgb(${pr},${pg},${pb})`;
+        // Main pass
+        if (alpha !== _lastAlpha) { gCtx.globalAlpha = alpha; _lastAlpha = alpha; }
         gCtx.fillRect(x, y, pSize, pSize);
-        // Rain shooting-star trail — gradient line drawn upward from the drop
+        // Rain shooting-star trail
         if (m === 'rain' && fx.rain.trail > 0) {
           const trailLen = fx.rain.trail * 6;
           const fadeMid  = Math.max(0.02, 1 - fx.rain.fade / 11);
@@ -1718,15 +1709,16 @@ function loop() {
           grad.addColorStop(0,       `rgba(${pr},${pg},${pb},${alpha})`);
           grad.addColorStop(fadeMid, `rgba(${pr},${pg},${pb},${(alpha * 0.15).toFixed(3)})`);
           grad.addColorStop(1,       `rgba(${pr},${pg},${pb},0)`);
-          gCtx.save();
-          gCtx.globalAlpha = 1;
+          const prevLineW = gCtx.lineWidth;
+          gCtx.globalAlpha = 1; _lastAlpha = 1;
           gCtx.strokeStyle = grad;
           gCtx.lineWidth = Math.max(1, pSize);
           gCtx.beginPath();
           gCtx.moveTo(cx, y);
           gCtx.lineTo(cx, y - trailLen);
           gCtx.stroke();
-          gCtx.restore();
+          gCtx.lineWidth = prevLineW;
+          _lastStyle = '';
         }
       }
     }

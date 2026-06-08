@@ -1607,14 +1607,16 @@ function loop() {
 
     } else if (m === 'explode') {
       const cx = w / 2, cy = h / 2;
-      const dx = p.ox - cx, dy = p.oy - cy;
-      const eSpd = fx.explode.speed / 4;
-      const eForce = fx.explode.force / 100;
-      const et = frame * eSpd * 0.01;
-      const burst = (Math.sin(et * 0.3) + 1) / 2;
-      x = cx + dx * (1 + burst * eForce * 1.5);
-      y = cy + dy * (1 + burst * eForce * 1.5);
-      life = 0.3 + 0.7 * burst;
+      const dx = p.ox - cx;
+      const dy = p.oy - cy;
+      // Single global sawtooth t shared by all particles — no per-particle stagger
+      // All particles fly out together and reset together
+      const t = (frame * fx.explode.speed * 0.003) % 1;
+      const scale = 1 + t * fx.explode.force * 0.4;
+      x = cx + dx * scale;
+      y = cy + dy * scale;
+      // Bright at start, linear fade-out so particles vanish before the snap-reset
+      life = Math.max(0, 1 - t * 1.4);
 
     } else if (m === 'rgb') {
       const rSpd = fx.rgb.speed / 4;

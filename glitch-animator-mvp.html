@@ -759,13 +759,9 @@ pixelSortBtn.addEventListener('click', () => {
 
 // ── Clear all effects ─────────────────────────────────────────────
 document.getElementById('clearFxBtn').addEventListener('click', () => {
-  // Reset particle modes to sparkle only
   activeModes.clear();
-  activeModes.add('sparkle');
   particles.forEach(p => { p.vx = 0; p.vy = 0; p.x = p.ox; p.y = p.oy; });
-  document.querySelectorAll('.mode-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.mode === 'sparkle');
-  });
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
   // Reset image FX
   mirrorActive = false;
   pixelSortActive = false;
@@ -1255,11 +1251,8 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const m = btn.dataset.mode;
     if (activeModes.has(m)) {
-      // Deactivate only if more than 1 active (keep at least 1)
-      if (activeModes.size > 1) {
-        activeModes.delete(m);
-        btn.classList.remove('active');
-      }
+      activeModes.delete(m);
+      btn.classList.remove('active');
     } else {
       activeModes.add(m);
       btn.classList.add('active');

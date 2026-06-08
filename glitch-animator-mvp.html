@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ioumia glitch generator</title>
+<link rel="icon" type="image/svg+xml" href="/assets/kiki-favicon.svg">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&family=Nunito:wght@400;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    color: #fff;
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  /* Scanlines overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  header {
+    width: 100%;
+    padding: 22px 24px 16px;
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    align-items: center;
+    gap: 0;
+    border-bottom: 1px solid rgba(0,255,180,0.15);
+  }
+
+  .nav-logo {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    border-radius: 50%;
+    border: 1px solid rgba(0,255,180,0.3);
+    box-shadow: 0 0 14px rgba(0,255,180,0.25);
+    align-self: center;
+  }
+
+  .header-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .logo {
+    font-family: 'Nunito', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    color: #00ffb4;
+    letter-spacing: 2px;
+    text-align: center;
+    text-shadow: 0 0 14px rgba(0,255,180,0.55), 0 0 32px rgba(0,255,180,0.2);
+  }
+
+  .logo span { color: #ff2d78; text-shadow: 0 0 12px rgba(255,45,120,0.7); }
+
+  .logo-jp {
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: rgba(0,255,180,0.5);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 400;
+    text-align: center;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #00ffb4;
+    animation: pulse 1.5s ease-in-out infinite;
+    margin-left: auto;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(0.7); }
+  }
+
+  .main {
+    flex: 1;
+    width: 100%;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 24px;
+    box-sizing: border-box;
+  }
+
+  /* Drop zone */
+  .drop-zone {
+    flex: 1;
+    min-width: 0;
+    aspect-ratio: 4/3;
+    border: 1px solid rgba(0,255,180,0.3);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+    background: rgba(0,255,180,0.02);
+  }
+
+  .drop-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+      linear-gradient(rgba(0,255,180,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,180,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .drop-zone:hover { border-color: rgba(0,255,180,0.6); }
+  .drop-zone.has-image { border-color: transparent; }
+
+  .drop-icon {
+    font-size: 36px;
+    opacity: 0.5;
+  }
+
+  .drop-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: rgba(0,255,180,0.6);
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  /* Canvas container */
+  .canvas-wrapper {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    display: none;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .canvas-wrapper.visible { display: block; }
+
+  #mainCanvas {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* Glitch overlay canvas */
+  #glitchCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    mix-blend-mode: screen;
+  }
+
+  /* Controls */
+  .controls {
+    width: 300px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .ctrl-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid rgba(0,255,180,0.4);
+    background: transparent;
+    color: #00ffb4;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0,255,180,0.08);
+    transform: translateX(-100%);
+    transition: transform 0.2s;
+  }
+
+  .btn:hover::before { transform: translateX(0); }
+  .btn:hover { border-color: #00ffb4; }
+
+  .btn.active {
+    background: rgba(0,255,180,0.12);
+    border-color: #00ffb4;
+    color: #fff;
+  }
+
+  .btn.danger {
+    color: #ff2d78;
+    border-color: rgba(255,45,120,0.4);
+  }
+  .btn.danger::before { background: rgba(255,45,120,0.08); }
+  .btn.danger:hover { border-color: #ff2d78; }
+
+  /* Sliders */
+  .slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .slider-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    width: 90px;
+    flex-shrink: 0;
+  }
+
+  input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 2px;
+    background: rgba(0,255,180,0.2);
+    border-radius: 1px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #00ffb4;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(0,255,180,0.6);
+  }
+
+  .slider-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: #00ffb4;
+    width: 30px;
+    text-align: right;
+  }
+
+  /* Mode buttons */
+  .mode-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .mode-btn {
+    padding: 9px 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: transparent;
+    color: rgba(255,255,255,0.4);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+    text-align: center;
+  }
+
+  .mode-btn:hover {
+    border-color: rgba(0,255,180,0.4);
+    color: rgba(0,255,180,0.7);
+  }
+
+  .mode-btn.active {
+    border-color: #00ffb4;
+    color: #00ffb4;
+    background: rgba(0,255,180,0.12);
+    box-shadow: inset 0 0 8px rgba(0,255,180,0.1);
+  }
+
+  .section-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.2);
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  /* Hidden input */
+  #fileInput { display: none; }
+
+  /* Recording indicator */
+  .rec-badge {
+    display: none;
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    background: rgba(255,45,120,0.9);
+    color: white;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 6px 12px;
+    border-radius: 2px;
+    z-index: 999;
+    animation: recPulse 1s ease-in-out infinite;
+  }
+  .rec-badge.show { display: block; }
+  @keyframes recPulse {
+    0%,100% { opacity:1; } 50% { opacity:0.5; }
+  }
+
+  .hint {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: rgba(255,255,255,0.2);
+    letter-spacing: 1px;
+    text-align: center;
+  }
+
+  .btn.record {
+    color: #ff2d78;
+    border-color: rgba(255,45,120,0.5);
+    position: relative;
+  }
+  .btn.record::before { background: rgba(255,45,120,0.08); }
+  .btn.record:hover { border-color: #ff2d78; }
+  .btn.record.recording {
+    color: #fff;
+    border-color: #ff2d78;
+    background: rgba(255,45,120,0.15);
+    animation: recGlow 1s ease-in-out infinite;
+  }
+  @keyframes recGlow {
+    0%,100% { box-shadow: 0 0 6px rgba(255,45,120,0.4); }
+    50%      { box-shadow: 0 0 18px rgba(255,45,120,0.8); }
+  }
+
+  .btn.download {
+    color: #ffe04b;
+    border-color: rgba(255,224,75,0.5);
+  }
+  .btn.download::before { background: rgba(255,224,75,0.08); }
+  .btn.download:hover { border-color: #ffe04b; }
+
+  .rec-timer {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: #ff2d78;
+    letter-spacing: 2px;
+    text-align: center;
+    display: none;
+  }
+  .rec-timer.show { display: block; }
+
+  /* ── Cinéma mode (plein écran enregistrement iPad) ── */
+  .cinema-btn {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: transparent;
+    color: rgba(255,255,255,0.4);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+    margin-top: 4px;
+  }
+  .cinema-btn:hover { border-color: #fff; color: #fff; }
+
+  body.cinema-mode header,
+  body.cinema-mode .controls,
+  body.cinema-mode .drop-zone { display: none !important; }
+
+  body.cinema-mode { background: #000; }
+
+  body.cinema-mode .main {
+    padding: 0;
+    height: 100vh;
+    justify-content: center;
+    align-items: center;
+  }
+
+  body.cinema-mode .canvas-wrapper {
+    width: 100vw !important;
+    height: 100vh !important;
+    border-radius: 0;
+  }
+
+  body.cinema-mode #mainCanvas,
+  body.cinema-mode #glitchCanvas {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+  }
+
+  /* Exit hint overlay in cinema mode */
+  #cinemaHint {
+    display: none;
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 2px;
+    pointer-events: none;
+    z-index: 999;
+    animation: fadeHint 3s ease forwards;
+  }
+  body.cinema-mode #cinemaHint { display: block; }
+  @keyframes fadeHint {
+    0%   { opacity: 1; }
+    60%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ── Per-effect param blocks ── */
+  .fx-block {
+    border: 1px solid rgba(0,255,180,0.12);
+    border-radius: 3px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+  .fx-header {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+  .fx-header .mode-btn {
+    flex: 1;
+    border: none;
+    border-radius: 0;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 10px;
+  }
+  .fx-expand {
+    background: transparent;
+    border: none;
+    border-left: 1px solid rgba(0,255,180,0.12);
+    color: rgba(0,255,180,0.4);
+    font-size: 14px;
+    padding: 0 10px;
+    cursor: pointer;
+    transition: color 0.2s, transform 0.2s;
+    height: 100%;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+  }
+  .fx-expand:hover { color: #00ffb4; }
+  .fx-expand.open { transform: rotate(180deg); color: #00ffb4; }
+  .fx-params {
+    display: none;
+    padding: 8px 10px;
+    border-top: 1px solid rgba(0,255,180,0.08);
+    background: rgba(0,255,180,0.02);
+    flex-direction: column;
+    gap: 8px;
+  }
+  .fx-params.open { display: flex; }
+  .fx-params .slider-label { width: 70px; font-size: 9px; }
+  .fx-params .slider-val   { font-size: 9px; }
+
+  /* Duration input row */
+  .dur-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dur-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  .dur-input {
+    width: 52px;
+    background: transparent;
+    border: 1px solid rgba(0,255,180,0.25);
+    border-radius: 2px;
+    color: #00ffb4;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    text-align: center;
+    padding: 4px 6px;
+    outline: none;
+  }
+  .dur-input:focus { border-color: #00ffb4; }
+
+  /* Mirror / Pixel sort toggle buttons */
+  .fx-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <img class="nav-logo" src="/assets/kiki.png" alt="kiki">
+  <div class="header-text">
+    <div class="logo">⸜(｡˃ ᵕ ˂ )⸝♡ ioumia<span>~</span>glitch generator ♡(˃ᵕ˂⸜)</div>
+    <div class="logo-jp">(っ˘ω˘ς ) グリッチ・ジェネレーター (ˊ˘ˋ)♡</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Drop zone -->
+  <div class="drop-zone" id="dropZone">
+    <div class="drop-icon">⬡</div>
+    <div class="drop-text">Tap to load your drawing</div>
+    <div class="drop-text" style="opacity:0.4; font-size:9px;">PNG · JPG · WEBP</div>
+  </div>
+
+  <!-- Canvas (hidden until image loaded) -->
+  <div class="canvas-wrapper" id="canvasWrapper">
+    <canvas id="mainCanvas"></canvas>
+    <canvas id="glitchCanvas"></canvas>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*">
+
+  <!-- Controls -->
+  <div class="controls" id="controls" style="display:none">
+
+    <!-- Play/Stop -->
+    <div class="ctrl-row">
+      <button class="btn" id="playBtn">▶ &nbsp;PLAY</button>
+      <button class="btn danger" id="resetBtn">↺ &nbsp;RESET</button>
+    </div>
+    <button class="btn" id="clearFxBtn" style="border-color:rgba(255,100,50,0.4);color:rgba(255,130,80,0.8)">✕ &nbsp;CLEAR ALL EFFECTS</button>
+    <button class="cinema-btn" id="cinemaBtn">⛶ &nbsp;SCREEN RECORD MODE</button>
+
+    <!-- Effects with inline params -->
+    <div>
+      <div class="section-title" style="margin-bottom:8px">EFFECTS <span style="opacity:0.35;font-size:8px">tap=toggle · ▾=params</span></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn active" data-mode="sparkle">✦ Sparkle</button>
+        <button class="fx-expand" data-target="params-sparkle">▾</button>
+      </div><div class="fx-params" id="params-sparkle">
+        <div class="slider-row"><span class="slider-label">Radius</span><input type="range" id="sparkleSlider" min="1" max="20" value="5"><span class="slider-val" id="sparkleVal">5</span></div>
+        <div class="slider-row"><span class="slider-label">Speed</span><input type="range" id="sparkleSpeedSlider" min="1" max="10" value="4"><span class="slider-val" id="sparkleSpeedVal">4</span></div>
+      </div></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn" data-mode="drift">⇢ Drift</button>
+        <button class="fx-expand" data-target="params-drift">▾</button>
+      </div><div class="fx-params" id="params-drift">
+        <div class="slider-row"><span class="slider-label">Amplitude</span><input type="range" id="driftAmpSlider" min="1" max="20" value="4"><span class="slider-val" id="driftAmpVal">4</span></div>
+        <div class="slider-row"><span class="slider-label">Speed</span><input type="range" id="driftSpeedSlider" min="1" max="10" value="4"><span class="slider-val" id="driftSpeedVal">4</span></div>
+      </div></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn" data-mode="pulse">◎ Pulse</button>
+        <button class="fx-expand" data-target="params-pulse">▾</button>
+      </div><div class="fx-params" id="params-pulse">
+        <div class="slider-row"><span class="slider-label">Scale</span><input type="range" id="pulseScaleSlider" min="1" max="20" value="8"><span class="slider-val" id="pulseScaleVal">8</span></div>
+        <div class="slider-row"><span class="slider-label">Speed</span><input type="range" id="pulseSpeedSlider" min="1" max="10" value="4"><span class="slider-val" id="pulseSpeedVal">4</span></div>
+      </div></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn" data-mode="rain">↓ Rain</button>
+        <button class="fx-expand" data-target="params-rain">▾</button>
+      </div><div class="fx-params" id="params-rain">
+        <div class="slider-row"><span class="slider-label">Speed</span><input type="range" id="rainSpeedSlider" min="1" max="10" value="4"><span class="slider-val" id="rainSpeedVal">4</span></div>
+        <div class="slider-row"><span class="slider-label">Trail</span><input type="range" id="rainTrailSlider" min="1" max="10" value="5"><span class="slider-val" id="rainTrailVal">5</span></div>
+      </div></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn" data-mode="explode">⊹ Explode</button>
+        <button class="fx-expand" data-target="params-explode">▾</button>
+      </div><div class="fx-params" id="params-explode">
+        <div class="slider-row"><span class="slider-label">Force</span><input type="range" id="explodeForceSlider" min="1" max="20" value="8"><span class="slider-val" id="explodeForceVal">8</span></div>
+        <div class="slider-row"><span class="slider-label">Speed</span><input type="range" id="explodeSpeedSlider" min="1" max="10" value="4"><span class="slider-val" id="explodeSpeedVal">4</span></div>
+      </div></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn" data-mode="rgb">RGB Split</button>
+        <button class="fx-expand" data-target="params-rgb">▾</button>
+      </div><div class="fx-params" id="params-rgb">
+        <div class="slider-row"><span class="slider-label">Spread</span><input type="range" id="rgbSpreadSlider" min="1" max="20" value="3"><span class="slider-val" id="rgbSpreadVal">3</span></div>
+        <div class="slider-row"><span class="slider-label">Speed</span><input type="range" id="rgbSpeedSlider" min="1" max="10" value="4"><span class="slider-val" id="rgbSpeedVal">4</span></div>
+      </div></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn" data-mode="blow">💨 Blow</button>
+        <button class="fx-expand" data-target="params-blow">▾</button>
+      </div><div class="fx-params" id="params-blow">
+        <div class="slider-row"><span class="slider-label">Force</span><input type="range" id="blowForceSlider" min="1" max="20" value="10"><span class="slider-val" id="blowForceVal">10</span></div>
+        <div class="slider-row"><span class="slider-label">Radius</span><input type="range" id="blowRadiusSlider" min="20" max="300" value="80"><span class="slider-val" id="blowRadiusVal">80</span></div>
+      </div></div>
+
+    </div>
+
+    <!-- Global settings -->
+    <div class="slider-group">
+      <div class="section-title">GLOBAL</div>
+      <div class="slider-row"><span class="slider-label">Size</span><input type="range" id="sizeSlider" min="1" max="8" value="2"><span class="slider-val" id="sizeVal">2</span></div>
+      <div class="slider-row"><span class="slider-label">Density</span><input type="range" id="densitySlider" min="1" max="5" value="3"><span class="slider-val" id="densityVal">3</span></div>
+      <div class="slider-row"><span class="slider-label">Glitch</span><input type="range" id="glitchSlider" min="0" max="10" value="3"><span class="slider-val" id="glitchVal">3</span></div>
+    </div>
+
+    <!-- Tint -->
+    <div class="slider-group">
+      <div class="section-title">TINT <span style="opacity:0.35;font-size:8px">skip white</span></div>
+      <div class="slider-row"><span class="slider-label" style="color:#ff5566">Red</span><input type="range" id="rSlider" min="-255" max="255" value="0"><span class="slider-val" id="rVal">0</span></div>
+      <div class="slider-row"><span class="slider-label" style="color:#44ee88">Green</span><input type="range" id="gSlider" min="-255" max="255" value="0"><span class="slider-val" id="gVal">0</span></div>
+      <div class="slider-row"><span class="slider-label" style="color:#44aaff">Blue</span><input type="range" id="bSlider" min="-255" max="255" value="0"><span class="slider-val" id="bVal">0</span></div>
+    </div>
+
+    <!-- Image FX -->
+    <div>
+      <div class="section-title" style="margin-bottom:6px">IMAGE FX</div>
+      <div class="fx-grid">
+        <button class="btn" id="mirrorBtn">⇔ Mirror</button>
+        <button class="btn" id="pixelSortBtn">▤ Pixel Sort</button>
+      </div>
+    </div>
+
+    <!-- Record row -->
+    <div>
+      <div class="section-title" style="margin-bottom:6px">Recording</div>
+      <div class="dur-row" style="margin-bottom:8px">
+        <span class="dur-label">DURATION</span>
+        <input type="number" class="dur-input" id="durInput" min="1" max="120" value="10" placeholder="10">
+        <span class="dur-label">sec — leave empty for unlimited</span>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn record" id="recBtn">⏺ &nbsp;RECORD VIDEO</button>
+        <button class="btn record" id="gifBtn" style="color:#ffe04b;border-color:rgba(255,224,75,0.5)">⏺ &nbsp;GIF</button>
+      </div>
+      <div class="ctrl-row" style="margin-top:8px">
+        <button class="btn download" id="dlBtn" style="display:none">⬇ &nbsp;DOWNLOAD VIDEO</button>
+        <button class="btn download" id="dlGifBtn" style="display:none;color:#ffe04b;border-color:rgba(255,224,75,0.5)">⬇ &nbsp;DOWNLOAD GIF</button>
+      </div>
+      <div id="convertTip" style="display:none;margin-top:8px">
+        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:1px">
+          Convert to MP4 →
+        </span>
+        <a href="https://cloudconvert.com/webm-to-mp4" target="_blank"
+           style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#00ffb4;letter-spacing:1px;text-decoration:none">
+          cloudconvert.com ↗
+        </a>
+      </div>
+    </div>
+
+    <div class="rec-timer" id="recTimer">● REC &nbsp;<span id="recTime">0:00</span></div>
+  </div>
+
+</div>
+
+<div id="cinemaHint">DOUBLE TAP TO EXIT</div>
+<div class="rec-badge" id="recBadge">● REC</div>
+
+<script>
+
+
+// ── State ──────────────────────────────────────────────────────────
+let img = null;
+let animId = null;
+let isPlaying = false;
+let particles = [];
+const activeModes = new Set(['sparkle']);
+let frame = 0;
+
+const settings = { intensity: 5, speed: 4, size: 2, glitch: 3, sparkle: 5, density: 3 };
+const tint = { r: 0, g: 0, b: 0 };
+// ── Blow effect: cursor/touch position ───────────────────────────
+const cursor = { x: -9999, y: -9999, active: false }; // RGB tint (-255..255), skips white pixels
+let mirrorActive    = false;
+let pixelSortActive = false;
+
+// ── Elements ───────────────────────────────────────────────────────
+const dropZone   = document.getElementById('dropZone');
+const fileInput  = document.getElementById('fileInput');
+const wrapper    = document.getElementById('canvasWrapper');
+const mainCanvas = document.getElementById('mainCanvas');
+const glitchCanvas = document.getElementById('glitchCanvas');
+const mCtx      = mainCanvas.getContext('2d');
+const gCtx      = glitchCanvas.getContext('2d');
+const playBtn    = document.getElementById('playBtn');
+const resetBtn   = document.getElementById('resetBtn');
+const controls   = document.getElementById('controls');
+const recBadge   = document.getElementById('recBadge');
+const recBtn     = document.getElementById('recBtn');
+const dlBtn      = document.getElementById('dlBtn');
+const gifBtn     = document.getElementById('gifBtn');
+const dlGifBtn   = document.getElementById('dlGifBtn');
+const convertTipEl = document.getElementById('convertTip');
+const mirrorBtn  = document.getElementById('mirrorBtn');
+const pixelSortBtn = document.getElementById('pixelSortBtn');
+const durInput   = document.getElementById('durInput');
+
+mirrorBtn.addEventListener('click', () => {
+  mirrorActive = !mirrorActive;
+  mirrorBtn.classList.toggle('active', mirrorActive);
+});
+pixelSortBtn.addEventListener('click', () => {
+  pixelSortActive = !pixelSortActive;
+  pixelSortBtn.classList.toggle('active', pixelSortActive);
+});
+
+// ── Clear all effects ─────────────────────────────────────────────
+document.getElementById('clearFxBtn').addEventListener('click', () => {
+  // Reset particle modes to sparkle only
+  activeModes.clear();
+  activeModes.add('sparkle');
+  particles.forEach(p => { p.vx = 0; p.vy = 0; p.x = p.ox; p.y = p.oy; });
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === 'sparkle');
+  });
+  // Reset image FX
+  mirrorActive = false;
+  pixelSortActive = false;
+  mirrorBtn.classList.remove('active');
+  pixelSortBtn.classList.remove('active');
+  // Reset RGB tint
+  tint.r = 0; tint.g = 0; tint.b = 0;
+  document.getElementById('rSlider').value = 0;
+  document.getElementById('gSlider').value = 0;
+  document.getElementById('bSlider').value = 0;
+  document.getElementById('rVal').textContent = '0';
+  document.getElementById('gVal').textContent = '0';
+  document.getElementById('bVal').textContent = '0';
+  // Reset glitch
+  settings.glitch = 0;
+  document.getElementById('glitchSlider').value = 0;
+  document.getElementById('glitchVal').textContent = '0';
+});
+const recTimer   = document.getElementById('recTimer');
+const recTimeEl  = document.getElementById('recTime');
+
+// ── Recording ──────────────────────────────────────────────────────
+let mediaRecorder = null;
+let recordedChunks = [];
+let recStartTime = null;
+let recTimerInterval = null;
+let lastBlobUrl = null;
+
+// Composite canvas for recording (merges mainCanvas + glitchCanvas)
+const recCanvas = document.createElement('canvas');
+const recCtx = recCanvas.getContext('2d');
+
+// Detect bounding box of non-black pixels in the image
+function getDrawingBounds(sourceCanvas) {
+  const ctx = sourceCanvas.getContext('2d');
+  const w = sourceCanvas.width, h = sourceCanvas.height;
+  const data = ctx.getImageData(0, 0, w, h).data;
+  let minX = w, minY = h, maxX = 0, maxY = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const brightness = (data[i] + data[i+1] + data[i+2]) / 3;
+      if (data[i+3] > 10 && brightness > 8) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  // Add a small padding
+  const pad = 20;
+  return {
+    x: Math.max(0, minX - pad),
+    y: Math.max(0, minY - pad),
+    w: Math.min(w, maxX - minX + pad * 2),
+    h: Math.min(h, maxY - minY + pad * 2),
+  };
+}
+
+let cropBounds = null; // will be set when recording starts
+
+recBtn.addEventListener('click', () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+});
+
+function startRecording() {
+  if (!img) return;
+
+  // Make sure animation is running
+  if (!isPlaying) startAnim();
+
+  // Detect drawing bounds and crop the recording to just the drawing
+  cropBounds = getDrawingBounds(mainCanvas);
+  recCanvas.width  = cropBounds.w;
+  recCanvas.height = cropBounds.h;
+
+  recordedChunks = [];
+  dlBtn.style.display = 'none';
+  if (lastBlobUrl) { URL.revokeObjectURL(lastBlobUrl); lastBlobUrl = null; }
+
+  // Determine best supported format
+  // Prefer MP4 (Instagram-compatible) → fallback to WebM
+  const mimeType =
+    MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2') ? 'video/mp4;codecs=avc1,mp4a.40.2' :
+    MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')           ? 'video/mp4;codecs=avc1'           :
+    MediaRecorder.isTypeSupported('video/mp4')                       ? 'video/mp4'                       :
+    MediaRecorder.isTypeSupported('video/webm;codecs=vp9')           ? 'video/webm;codecs=vp9'           :
+    MediaRecorder.isTypeSupported('video/webm;codecs=vp8')           ? 'video/webm;codecs=vp8'           :
+    'video/webm';
+  const fileExt = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm';
+  console.log('Recording format:', mimeType);
+
+  const stream = recCanvas.captureStream(120);
+  mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 40_000_000 });
+
+  mediaRecorder.ondataavailable = e => {
+    if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+  };
+
+  mediaRecorder.onstop = () => {
+    clearInterval(recTimerInterval);
+    recTimer.classList.remove('show');
+    recBtn.classList.remove('recording');
+    recBtn.innerHTML = '\u23fa &nbsp;VIDEO';
+
+    const videoBlob = new Blob(recordedChunks, { type: mimeType });
+    lastBlobUrl = URL.createObjectURL(videoBlob);
+    dlBtn.dataset.url = lastBlobUrl;
+    dlBtn.dataset.ext = fileExt;
+    dlBtn.innerHTML = fileExt === 'mp4' ? '⬇ &nbsp;DOWNLOAD MP4' : '⬇ &nbsp;DOWNLOAD WEBM';
+    dlBtn.style.display = '';
+    if (fileExt !== 'mp4') convertTipEl.style.display = '';
+  };
+
+  mediaRecorder.start(100);
+
+  recStartTime = Date.now();
+  recBtn.classList.add('recording');
+  recBtn.innerHTML = '\u25a0 &nbsp;STOP';
+  recTimer.classList.add('show');
+
+  // Auto-stop after duration if set
+  const durSecs = parseFloat(durInput.value);
+  if (!isNaN(durSecs) && durSecs > 0) {
+    setTimeout(() => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') stopRecording();
+    }, durSecs * 1000);
+  }
+
+  recTimerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - recStartTime) / 1000);
+    const m = Math.floor(elapsed / 60);
+    const s = elapsed % 60;
+    recTimeEl.textContent = m + ':' + s.toString().padStart(2,'0');
+  }, 500);
+
+  compositeLoop();
+}
+
+function compositeLoop() {
+  if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
+  const { x, y, w, h } = cropBounds;
+  recCtx.clearRect(0, 0, w, h);
+  // Draw cropped region from both canvases
+  recCtx.drawImage(mainCanvas, x, y, w, h, 0, 0, w, h);
+  recCtx.globalCompositeOperation = 'screen';
+  recCtx.drawImage(glitchCanvas, x, y, w, h, 0, 0, w, h);
+  recCtx.globalCompositeOperation = 'source-over';
+  requestAnimationFrame(compositeLoop);
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+  }
+}
+
+// ── No server-side FFmpeg available in this context ──────────────
+// WebM is the native browser format; conversion is handled client-side after download
+
+dlBtn.addEventListener('click', () => {
+  if (!dlBtn.dataset.url) return;
+  const a = document.createElement('a');
+  a.href = dlBtn.dataset.url;
+  a.download = 'glitch-animation.' + dlBtn.dataset.ext;
+  a.click();
+});
+
+// ── Mode Cinéma (enregistrement écran iPad) ───────────────────────
+const cinemaBtn  = document.getElementById('cinemaBtn');
+const cinemaHint = document.getElementById('cinemaHint');
+
+// ── Blow: track cursor / touch on canvas ─────────────────────────
+function getCursorPos(e, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width  / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const src = e.touches ? e.touches[0] : e;
+  return {
+    x: (src.clientX - rect.left)  * scaleX,
+    y: (src.clientY - rect.top)   * scaleY,
+  };
+}
+
+wrapper.addEventListener('mousemove', e => {
+  const pos = getCursorPos(e, mainCanvas);
+  cursor.x = pos.x; cursor.y = pos.y; cursor.active = true;
+});
+wrapper.addEventListener('mouseleave', () => {
+  cursor.x = -9999; cursor.y = -9999; cursor.active = false;
+});
+wrapper.addEventListener('touchmove', e => {
+  if (!activeModes.has('blow')) return;
+  e.preventDefault();
+  const pos = getCursorPos(e, mainCanvas);
+  cursor.x = pos.x; cursor.y = pos.y; cursor.active = true;
+}, { passive: false });
+wrapper.addEventListener('touchend', () => {
+  cursor.x = -9999; cursor.y = -9999; cursor.active = false;
+});
+
+cinemaBtn.addEventListener('click', () => {
+  if (!isPlaying) startAnim();
+  document.body.classList.add('cinema-mode');
+  // Reset hint animation
+  cinemaHint.style.animation = 'none';
+  void cinemaHint.offsetWidth;
+  cinemaHint.style.animation = 'fadeHint 3s ease forwards';
+});
+
+// Double-tap anywhere to exit cinema mode
+let lastTap = 0;
+document.addEventListener('touchend', e => {
+  if (!document.body.classList.contains('cinema-mode')) return;
+  const now = Date.now();
+  if (now - lastTap < 350) {
+    document.body.classList.remove('cinema-mode');
+  }
+  lastTap = now;
+});
+// Double-click for desktop
+document.addEventListener('dblclick', () => {
+  if (document.body.classList.contains('cinema-mode')) {
+    document.body.classList.remove('cinema-mode');
+  }
+});
+
+// ── GIF recording ─────────────────────────────────────────────────
+let gifRecording = false;
+let gifFrames = [];
+let gifInterval = null;
+let gifAutoStop = null;
+
+gifBtn.addEventListener('click', () => {
+  if (gifRecording) {
+    stopGif();
+  } else {
+    startGif();
+  }
+});
+
+function startGif() {
+  if (!img) return;
+  if (!isPlaying) startAnim();
+  // Detect crop bounds if not already set
+  if (!cropBounds) cropBounds = getDrawingBounds(mainCanvas);
+  gifRecording = true;
+  gifFrames = [];
+  dlGifBtn.style.display = 'none';
+
+  gifBtn.classList.add('recording');
+  gifBtn.innerHTML = '\u25a0 &nbsp;STOP GIF';
+  recTimer.classList.add('show');
+
+  // Capture a composite frame every ~80ms (≈12fps for GIF)
+  gifInterval = setInterval(() => {
+    // Use same crop bounds as video recording
+    const cb = cropBounds || { x: 0, y: 0, w: mainCanvas.width, h: mainCanvas.height };
+    const gc = document.createElement('canvas');
+    gc.width  = cb.w;
+    gc.height = cb.h;
+    const gx = gc.getContext('2d');
+    gx.drawImage(mainCanvas, cb.x, cb.y, cb.w, cb.h, 0, 0, cb.w, cb.h);
+    gx.globalCompositeOperation = 'screen';
+    gx.drawImage(glitchCanvas, cb.x, cb.y, cb.w, cb.h, 0, 0, cb.w, cb.h);
+    gifFrames.push(gc.toDataURL('image/png'));
+  }, 33);
+
+  // Auto-stop
+  const durSecs = parseFloat(durInput.value);
+  if (!isNaN(durSecs) && durSecs > 0) {
+    gifAutoStop = setTimeout(stopGif, durSecs * 1000);
+  }
+}
+
+function stopGif() {
+  clearInterval(gifInterval);
+  clearTimeout(gifAutoStop);
+  gifRecording = false;
+  gifBtn.classList.remove('recording');
+  gifBtn.innerHTML = '\u23fa &nbsp;GIF';
+  recTimer.classList.remove('show');
+
+  if (gifFrames.length === 0) return;
+
+  // Build GIF using gif.js
+  buildGif(gifFrames);
+}
+
+function buildGif(frames) {
+  gifBtn.innerHTML = '⏳ Building GIF...';
+  gifBtn.disabled = true;
+
+  // Load gif.js dynamically
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js';
+  script.onload = () => {
+    const cb = cropBounds || { w: mainCanvas.width, h: mainCanvas.height };
+    const gif = new GIF({
+      workers: 2,
+      quality: 1,
+      width: cb.w,
+      height: cb.h,
+      workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
+    });
+
+    let loaded = 0;
+    frames.forEach(src => {
+      const img = new Image();
+      img.onload = () => {
+        const fc = document.createElement('canvas');
+        fc.width = mainCanvas.width; fc.height = mainCanvas.height;
+        fc.getContext('2d').drawImage(img, 0, 0);
+        gif.addFrame(fc, { delay: 33 });
+        loaded++;
+        if (loaded === frames.length) gif.render();
+      };
+      img.src = src;
+    });
+
+    gif.on('finished', blob => {
+      const url = URL.createObjectURL(blob);
+      dlGifBtn.dataset.url = url;
+      dlGifBtn.style.display = '';
+      gifBtn.innerHTML = '\u23fa &nbsp;GIF';
+      gifBtn.disabled = false;
+    });
+  };
+  document.head.appendChild(script);
+}
+
+dlGifBtn.addEventListener('click', () => {
+  if (!dlGifBtn.dataset.url) return;
+  const a = document.createElement('a');
+  a.href = dlGifBtn.dataset.url;
+  a.download = 'glitch-animation.gif';
+  a.click();
+});
+
+// ── Load image ─────────────────────────────────────────────────────
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => loadFile(e.target.files[0]));
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor='#00ffb4'; });
+dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor=''; });
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.style.borderColor='';
+  loadFile(e.dataTransfer.files[0]);
+});
+
+function loadFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const url = URL.createObjectURL(file);
+  img = new Image();
+  img.onload = () => {
+    mainCanvas.width  = img.naturalWidth;
+    mainCanvas.height = img.naturalHeight;
+    glitchCanvas.width  = img.naturalWidth;
+    glitchCanvas.height = img.naturalHeight;
+    mCtx.drawImage(img, 0, 0);
+    dropZone.style.display = 'none';
+    wrapper.classList.add('visible');
+    controls.style.display = 'flex';
+    controls.style.flexDirection = 'column';
+    buildParticles();
+  };
+  img.src = url;
+}
+
+// ── Build particles from bright pixels ────────────────────────────
+function buildParticles() {
+  particles = [];
+  const w = mainCanvas.width, h = mainCanvas.height;
+  const data = mCtx.getImageData(0, 0, w, h).data;
+  const step = Math.max(1, 6 - settings.density); // density slider: 1=sparse(step5) to 5=dense(step1)
+
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      const i = (y * w + x) * 4;
+      const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+      const brightness = (r + g + b) / 3;
+      // Skip near-black background pixels — only keep actual drawing pixels
+      // Use max channel instead of avg to catch dark colored pixels (deep blue/red glitch)
+      const maxChannel = Math.max(r, g, b);
+      if (a > 30 && maxChannel > 12) {
+        // Boost perceived brightness for display: amplify dim glitch pixels
+        const boost = Math.min(255, Math.round(r * 2.5));
+        const gboost = Math.min(255, Math.round(g * 2.5));
+        const bboost = Math.min(255, Math.round(b * 2.5));
+        // Weight alpha by brightness so bright pixels are more opaque
+        const weightedA = Math.min(255, Math.round((maxChannel / 255) * 255 * 2));
+        particles.push({
+          ox: x, oy: y,
+          x: x, y: y,
+          r: boost, g: gboost, b: bboost, a: weightedA,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.5 + Math.random() * 1.5,
+          size: 0.5 + Math.random() * 1.5,
+          vx: 0, vy: 0,
+          life: 1,
+          rainY: undefined,
+        });
+      }
+    }
+  }
+}
+
+// ── Sliders ────────────────────────────────────────────────────────
+function bindSlider(id, valId, key) {
+  const slider = document.getElementById(id);
+  const valEl  = document.getElementById(valId);
+  slider.addEventListener('input', () => {
+    settings[key] = parseInt(slider.value);
+    valEl.textContent = slider.value;
+    if (key === 'intensity' || key === 'size' || key === 'density') buildParticles();
+  });
+}
+// Global sliders still use generic bindSlider
+bindSlider('sizeSlider',      'sizeVal',      'size');
+bindSlider('glitchSlider',    'glitchVal',    'glitch');
+bindSlider('densitySlider',   'densityVal',   'density');
+
+// ── Per-effect params ─────────────────────────────────────────────
+// Each effect gets its own settings object
+const fx = {
+  sparkle: { radius: 5,  speed: 4 },
+  drift:   { amp: 4,     speed: 4 },
+  pulse:   { scale: 8,   speed: 4 },
+  rain:    { speed: 4,   trail: 5 },
+  explode: { force: 8,   speed: 4 },
+  rgb:     { spread: 3,  speed: 4 },
+  blow:    { force: 10,  radius: 80 },
+};
+
+function bindFxSlider(id, valId, effect, key) {
+  const el  = document.getElementById(id);
+  const val = document.getElementById(valId);
+  if (!el) return;
+  el.addEventListener('input', () => {
+    fx[effect][key] = parseFloat(el.value);
+    val.textContent = el.value;
+    if (key === 'density') buildParticles();
+  });
+}
+bindFxSlider('sparkleSlider',      'sparkleVal',      'sparkle', 'radius');
+bindFxSlider('sparkleSpeedSlider', 'sparkleSpeedVal', 'sparkle', 'speed');
+bindFxSlider('driftAmpSlider',     'driftAmpVal',     'drift',   'amp');
+bindFxSlider('driftSpeedSlider',   'driftSpeedVal',   'drift',   'speed');
+bindFxSlider('pulseScaleSlider',   'pulseScaleVal',   'pulse',   'scale');
+bindFxSlider('pulseSpeedSlider',   'pulseSpeedVal',   'pulse',   'speed');
+bindFxSlider('rainSpeedSlider',    'rainSpeedVal',    'rain',    'speed');
+bindFxSlider('rainTrailSlider',    'rainTrailVal',    'rain',    'trail');
+bindFxSlider('explodeForceSlider', 'explodeForceVal', 'explode', 'force');
+bindFxSlider('explodeSpeedSlider', 'explodeSpeedVal', 'explode', 'speed');
+bindFxSlider('rgbSpreadSlider',    'rgbSpreadVal',    'rgb',     'spread');
+bindFxSlider('rgbSpeedSlider',     'rgbSpeedVal',     'rgb',     'speed');
+bindFxSlider('blowForceSlider',    'blowForceVal',    'blow',    'force');
+bindFxSlider('blowRadiusSlider',   'blowRadiusVal',   'blow',    'radius');
+
+// ── Expand/collapse param panels ─────────────────────────────────
+document.querySelectorAll('.fx-expand').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const panel = document.getElementById(btn.dataset.target);
+    panel.classList.toggle('open');
+    btn.classList.toggle('open');
+  });
+});
+
+// RGB tint sliders
+['r','g','b'].forEach(ch => {
+  const slider = document.getElementById(ch + 'Slider');
+  const valEl  = document.getElementById(ch + 'Val');
+  slider.addEventListener('input', () => {
+    tint[ch] = parseInt(slider.value);
+    valEl.textContent = slider.value;
+  });
+});
+
+// ── Mode buttons ──────────────────────────────────────────────────
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const m = btn.dataset.mode;
+    if (activeModes.has(m)) {
+      // Deactivate only if more than 1 active (keep at least 1)
+      if (activeModes.size > 1) {
+        activeModes.delete(m);
+        btn.classList.remove('active');
+      }
+    } else {
+      activeModes.add(m);
+      btn.classList.add('active');
+    }
+    buildParticles();
+  });
+});
+
+// ── Play / Stop ───────────────────────────────────────────────────
+playBtn.addEventListener('click', () => {
+  if (isPlaying) {
+    stopAnim();
+  } else {
+    startAnim();
+  }
+});
+
+resetBtn.addEventListener('click', () => {
+  stopAnim();
+  dropZone.style.display = '';
+  wrapper.classList.remove('visible');
+  controls.style.display = 'none';
+  img = null;
+  particles = [];
+  fileInput.value = '';
+});
+
+function startAnim() {
+  isPlaying = true;
+  playBtn.textContent = '■  STOP';
+  playBtn.classList.add('active');
+  recBadge.classList.add('show');
+  buildParticles();
+  loop();
+}
+
+function stopAnim() {
+  isPlaying = false;
+  cancelAnimationFrame(animId);
+  playBtn.textContent = '▶  PLAY';
+  playBtn.classList.remove('active');
+  recBadge.classList.remove('show');
+  // Restore original image
+  if (img) {
+    mCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+    mCtx.drawImage(img, 0, 0);
+    gCtx.clearRect(0, 0, glitchCanvas.width, glitchCanvas.height);
+  }
+}
+
+// ── Animation loop ─────────────────────────────────────────────────
+function loop() {
+  animId = requestAnimationFrame(loop);
+  frame++;
+  const w = mainCanvas.width, h = mainCanvas.height;
+  const spd = settings.speed / 4;
+  const inten = settings.intensity / 5;
+  const glitchAmt = settings.glitch;
+
+  // Redraw base image
+  mCtx.clearRect(0, 0, w, h);
+  mCtx.globalAlpha = 1;
+  mCtx.drawImage(img, 0, 0);
+
+
+  // ── RGB Color Overlay (screen blend — skips black, preserves white) ──────
+  if (tint.r !== 0 || tint.g !== 0 || tint.b !== 0) {
+    // Convert -255..255 to 0..255 color + opacity
+    // Positive = add color via screen, negative = subtract via multiply
+    mCtx.save();
+    if (tint.r > 0 || tint.g > 0 || tint.b > 0) {
+      const cr = Math.max(0, tint.r);
+      const cg = Math.max(0, tint.g);
+      const cb = Math.max(0, tint.b);
+      const strength = Math.max(cr, cg, cb) / 255;
+      mCtx.globalCompositeOperation = 'screen';
+      mCtx.globalAlpha = strength * 0.9;
+      mCtx.fillStyle = `rgb(${cr},${cg},${cb})`;
+      mCtx.fillRect(0, 0, w, h);
+    }
+    if (tint.r < 0 || tint.g < 0 || tint.b < 0) {
+      // Negative tint: desaturate that channel using 'multiply' with inverse color
+      const cr = tint.r < 0 ? Math.round(255 + tint.r) : 255;
+      const cg = tint.g < 0 ? Math.round(255 + tint.g) : 255;
+      const cb = tint.b < 0 ? Math.round(255 + tint.b) : 255;
+      const strength = Math.max(255 - cr, 255 - cg, 255 - cb) / 255;
+      mCtx.globalCompositeOperation = 'multiply';
+      mCtx.globalAlpha = strength * 0.85;
+      mCtx.fillStyle = `rgb(${cr},${cg},${cb})`;
+      mCtx.fillRect(0, 0, w, h);
+    }
+    mCtx.restore();
+  }
+
+  // ── Mirror ────────────────────────────────────────────────────────
+  if (mirrorActive) {
+    // Take left half and flip it onto right half
+    mCtx.save();
+    mCtx.translate(w, 0);
+    mCtx.scale(-1, 1);
+    mCtx.drawImage(mainCanvas, 0, 0, w / 2, h, 0, 0, w / 2, h);
+    mCtx.restore();
+  }
+
+  // ── Pixel Sort ────────────────────────────────────────────────────
+  if (pixelSortActive) {
+    const imgData = mCtx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+    // Pick random rows and sort contiguous bright segments within them
+    const numRows = Math.floor(h * 0.15); // affect ~15% of rows per frame
+    for (let s = 0; s < numRows; s++) {
+      const row = Math.floor(Math.random() * h);
+      const base = row * w * 4;
+      // Find contiguous segments of non-black pixels (brightness > threshold)
+      const threshold = 6;
+      let segStart = -1;
+      const flush = (end) => {
+        if (segStart < 0 || end - segStart < 3) return;
+        const pixels = [];
+        for (let x = segStart; x < end; x++) {
+          const i = base + x * 4;
+          pixels.push({ r: d[i], g: d[i+1], b: d[i+2], a: d[i+3],
+                        lum: 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2] });
+        }
+        pixels.sort((a, b) => a.lum - b.lum);
+        for (let x = segStart; x < end; x++) {
+          const i = base + x * 4;
+          const px = pixels[x - segStart];
+          d[i] = px.r; d[i+1] = px.g; d[i+2] = px.b; d[i+3] = px.a;
+        }
+        segStart = -1;
+      };
+      for (let x = 0; x < w; x++) {
+        const i = base + x * 4;
+        const bright = (d[i] + d[i+1] + d[i+2]) / 3;
+        if (bright > threshold) {
+          if (segStart < 0) segStart = x;
+        } else {
+          flush(x);
+        }
+      }
+      flush(w);
+    }
+    mCtx.putImageData(imgData, 0, 0);
+  }
+
+  // Glitch horizontal slices
+  if (glitchAmt > 0 && frame % Math.max(1, Math.floor(8 - glitchAmt)) === 0) {
+    const numSlices = Math.floor(glitchAmt * 0.8);
+    for (let s = 0; s < numSlices; s++) {
+      const sy = Math.random() * h;
+      const sh = 2 + Math.random() * (glitchAmt * 3);
+      const offset = (Math.random() - 0.5) * glitchAmt * 8;
+      mCtx.drawImage(img, 0, sy, w, sh, offset, sy, w, sh);
+
+      // RGB channel split on some slices
+      if (Math.random() < 0.4) {
+        mCtx.globalAlpha = 0.3;
+        mCtx.globalCompositeOperation = 'screen';
+        mCtx.fillStyle = `rgb(255,0,0)`;
+        mCtx.drawImage(img, 0, sy, w, sh, offset + 3, sy, w, sh);
+        mCtx.fillStyle = `rgb(0,0,255)`;
+        mCtx.drawImage(img, 0, sy, w, sh, offset - 3, sy, w, sh);
+        mCtx.globalCompositeOperation = 'source-over';
+        mCtx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // ── Draw particles ─────────────────────────────────────────────
+  gCtx.clearRect(0, 0, w, h);
+
+  const subset = particles.length > 8000
+    ? particles.filter((_, i) => i % Math.ceil(particles.length / 8000) === 0)
+    : particles;
+
+  const pSize = settings.size * 0.8;
+
+  // ── Helper: apply one mode's transform to a particle copy ─────────
+  function applyMode(m, p, t) {
+    // Returns {x, y, life, isRgb} without mutating original state fields
+    let x = p.x, y = p.y, life = p.life;
+    let isRgb = false;
+
+    if (m === 'sparkle') {
+      const sparkleRadius = fx.sparkle.radius * 0.6;
+      const spd2 = fx.sparkle.speed / 4;
+      x = p.ox + (Math.random() - 0.5) * sparkleRadius;
+      y = p.oy + (Math.random() - 0.5) * sparkleRadius;
+      life = 0.3 + 0.7 * Math.abs(Math.sin(frame * spd2 * p.speed * 0.05 + p.phase));
+
+    } else if (m === 'drift') {
+      const dSpd = fx.drift.speed / 4;
+      const dAmp = fx.drift.amp;
+      const dt = frame * dSpd * p.speed * 0.02 + p.phase;
+      x = p.ox + Math.sin(dt) * dAmp;
+      y = p.oy + Math.cos(dt * 0.7) * dAmp * 0.75;
+      life = 0.5 + 0.5 * Math.sin(dt);
+
+    } else if (m === 'pulse') {
+      const pSpd   = fx.pulse.speed / 4;
+      const pScale = fx.pulse.scale / 100;
+      const pt = frame * pSpd * 0.01;
+      const scale = 1 + Math.sin(pt * 0.5) * pScale;
+      x = p.ox * scale + (w * (1 - scale)) / 2;
+      y = p.oy * scale + (h * (1 - scale)) / 2;
+      life = 0.4 + 0.6 * Math.abs(Math.sin(pt));
+
+    } else if (m === 'rain') {
+      // Rain starts from particle's own position on the drawing and falls down
+      if (p.rainY === undefined) {
+        // Stagger start: some particles start mid-fall using a random offset
+        p.rainY = p.oy + Math.random() * (h - p.oy);
+      }
+      const rainSpd = fx.rain.speed / 4;
+      const rainTrail = fx.rain.trail / 10;
+      p.rainY += rainSpd * 1.5 * p.speed;
+      // When a drop reaches the bottom, reset to its origin on the drawing
+      if (p.rainY > h + 10) p.rainY = p.oy;
+      x = p.ox + (Math.random() - 0.5) * 0.8; // tiny horizontal shimmer
+      y = p.rainY;
+      // Fade out as it gets further from origin
+      const distFromOrigin = Math.max(0, p.rainY - p.oy) / (h - p.oy + 1);
+      life = Math.max(0.05, (1 - distFromOrigin) * rainTrail * 1.8);
+
+    } else if (m === 'explode') {
+      const cx = w / 2, cy = h / 2;
+      const dx = p.ox - cx, dy = p.oy - cy;
+      const eSpd = fx.explode.speed / 4;
+      const eForce = fx.explode.force / 100;
+      const et = frame * eSpd * 0.01;
+      const burst = (Math.sin(et * 0.3) + 1) / 2;
+      x = cx + dx * (1 + burst * eForce * 1.5);
+      y = cy + dy * (1 + burst * eForce * 1.5);
+      life = 0.3 + 0.7 * burst;
+
+    } else if (m === 'rgb') {
+      const rSpd = fx.rgb.speed / 4;
+      const rSpread = fx.rgb.spread;
+      const rt = frame * rSpd * p.speed * 0.02;
+      x = p.ox + Math.sin(rt * 1.5) * rSpread;
+      y = p.oy;
+      life = 0.6 + 0.4 * Math.abs(Math.sin(rt * 3));
+      isRgb = true;
+
+    } else if (m === 'blow') {
+      // Particles are repelled from the cursor, then spring back to origin
+      const blowRadius = fx.blow.radius;
+      const blowForce  = fx.blow.force / 10;
+      const dx = p.ox - cursor.x;
+      const dy = p.oy - cursor.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < blowRadius && dist > 0) {
+        const force = (1 - dist / blowRadius) * blowRadius * 0.5 * blowForce;
+        p.vx += (dx / dist) * force * 0.15;
+        p.vy += (dy / dist) * force * 0.15;
+      }
+      // Spring back to origin
+      p.vx += (p.ox - p.x) * 0.08;
+      p.vy += (p.oy - p.y) * 0.08;
+      // Damping
+      p.vx *= 0.75;
+      p.vy *= 0.75;
+      x = p.x + p.vx;
+      y = p.y + p.vy;
+      // Persist position for next frame
+      p.x = x;
+      p.y = y;
+      life = 0.6 + 0.4 * Math.abs(Math.sin(t * 2 + p.phase));
+    }
+
+    return { x, y, life, isRgb };
+  }
+
+  // ── Draw each active mode as a separate pass ─────────────────────
+  const modeList = [...activeModes];
+  const alphaPerMode = 1 / modeList.length; // blend when stacked
+
+  for (const m of modeList) {
+    for (const p of subset) {
+      const t = frame * spd * p.speed + p.phase;
+      const { x, y, life, isRgb } = applyMode(m, p, t);
+
+      const alpha = Math.min(1, life * (p.a / 255) * (modeList.length > 1 ? 0.75 : 1));
+      if (alpha < 0.05) continue;
+
+      gCtx.globalAlpha = alpha;
+
+      if (isRgb) {
+        const rOff = fx.rgb.spread * 0.7;
+        gCtx.fillStyle = `rgb(255,${p.g},${p.b})`;
+        gCtx.fillRect(x - rOff, p.oy, pSize, pSize);
+        gCtx.fillStyle = `rgb(${p.r},255,${p.b})`;
+        gCtx.fillRect(x, p.oy, pSize, pSize);
+        gCtx.fillStyle = `rgb(${p.r},${p.g},255)`;
+        gCtx.fillRect(x + rOff, p.oy, pSize, pSize);
+      } else {
+        // Blend particle color toward tint color (mix, not add — works on dark pixels)
+        const pBright = (p.r + p.g + p.b) / 3;
+        let pr = p.r, pg = p.g, pb = p.b;
+        if (pBright <= 200 && (tint.r !== 0 || tint.g !== 0 || tint.b !== 0)) {
+          const strength = Math.min(1, Math.max(Math.abs(tint.r), Math.abs(tint.g), Math.abs(tint.b)) / 255);
+          // screen blend for positive tint, multiply for negative
+          const tr = tint.r >= 0 ? 255 - (255 - p.r) * (255 - tint.r) / 255 : p.r * (255 + tint.r) / 255;
+          const tg = tint.g >= 0 ? 255 - (255 - p.g) * (255 - tint.g) / 255 : p.g * (255 + tint.g) / 255;
+          const tb = tint.b >= 0 ? 255 - (255 - p.b) * (255 - tint.b) / 255 : p.b * (255 + tint.b) / 255;
+          pr = Math.round(p.r + (tr - p.r) * strength);
+          pg = Math.round(p.g + (tg - p.g) * strength);
+          pb = Math.round(p.b + (tb - p.b) * strength);
+          pr = Math.max(0, Math.min(255, pr));
+          pg = Math.max(0, Math.min(255, pg));
+          pb = Math.max(0, Math.min(255, pb));
+        }
+        // Glow
+        gCtx.globalAlpha = alpha * 0.25;
+        gCtx.fillStyle = `rgb(${pr},${pg},${pb})`;
+        gCtx.fillRect(x - 1, y - 1, pSize + 2, pSize + 2);
+        gCtx.globalAlpha = alpha;
+        gCtx.fillStyle = `rgb(${pr},${pg},${pb})`;
+        gCtx.fillRect(x, y, pSize, pSize);
+      }
+    }
+  }
+
+  gCtx.globalAlpha = 1;
+}
+</script>
+</body>
+</html>

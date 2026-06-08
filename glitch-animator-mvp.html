@@ -962,27 +962,29 @@ function getDrawingBounds(sourceCanvas) {
 let cropBounds = null; // will be set when recording starts
 
 recBtn.addEventListener('click', () => {
+  if (recBtn.dataset.rendering) return;
   if (mediaRecorder && mediaRecorder.state === 'recording') {
-    stopRecording();
+    stopLiveRecording();
   } else {
     startRecording();
   }
 });
 
-function startRecording() {
+async function startRecording() {
   if (!img) return;
-
-  // Make sure animation is running
-  if (!isPlaying) startAnim();
-
-  // Detect drawing bounds and crop the recording to just the drawing
+  dlBtn.style.display = 'none';
+  convertTipEl.style.display = 'none';
+  if (lastBlobUrl) { URL.revokeObjectURL(lastBlobUrl); lastBlobUrl = null; }
   cropBounds = getDrawingBounds(mainCanvas);
   recCanvas.width  = cropBounds.w;
   recCanvas.height = cropBounds.h;
-
+  // Use offline WebCodecs rendering if available — no dropped frames, perfect quality
+  if (typeof VideoEncoder !== 'undefined') {
+    await startOfflineRecording();
+    return;
+  }
+  // Fallback: live captureStream (Firefox / older browsers)
   recordedChunks = [];
-  dlBtn.style.display = 'none';
-  if (lastBlobUrl) { URL.revokeObjectURL(lastBlobUrl); lastBlobUrl = null; }
 
   // Determine best supported format
   // Prefer MP4 (Instagram-compatible) → fallback to WebM
@@ -996,8 +998,8 @@ function startRecording() {
   const fileExt = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm';
   console.log('Recording format:', mimeType);
 
-  const stream = recCanvas.captureStream(120);
-  mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 40_000_000 });
+  const stream = recCanvas.captureStream(60);
+  mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 20_000_000 });
 
   mediaRecorder.ondataavailable = e => {
     if (e.data && e.data.size > 0) recordedChunks.push(e.data);
@@ -1029,7 +1031,7 @@ function startRecording() {
   const durSecs = parseFloat(durInput.value);
   if (!isNaN(durSecs) && durSecs > 0) {
     setTimeout(() => {
-      if (mediaRecorder && mediaRecorder.state === 'recording') stopRecording();
+      if (mediaRecorder && mediaRecorder.state === 'recording') stopLiveRecording();
     }, durSecs * 1000);
   }
 
@@ -1055,14 +1057,104 @@ function compositeLoop() {
   requestAnimationFrame(compositeLoop);
 }
 
-function stopRecording() {
+function stopLiveRecording() {
   if (mediaRecorder && mediaRecorder.state === 'recording') {
     mediaRecorder.stop();
   }
 }
 
-// ── No server-side FFmpeg available in this context ──────────────
-// WebM is the native browser format; conversion is handled client-side after download
+// ── Offline renderer: renders every frame headlessly at perfect 60fps ──────
+async function startOfflineRecording() {
+  const fps = 60;
+  const durationSecs = Math.max(1, parseFloat(durInput.value) || 10);
+  const totalFrames = Math.round(durationSecs * fps);
+  const { x: ox, y: oy, w: cw, h: ch } = cropBounds;
+
+  recBtn.dataset.rendering = '1';
+  recBtn.classList.add('recording');
+  recBtn.innerHTML = '⏳ &nbsp;0%';
+  recBadge.classList.add('show');
+
+  stopAnim();
+
+  try {
+    // Prefer H.264/MP4, fall back to VP9/WebM
+    let MuxerCls, ArrBufCls, muxerOpts, encoderCodec, fileType, fileExt;
+    const avcCheck = await VideoEncoder.isConfigSupported({
+      codec: 'avc1.640028', width: cw, height: ch, bitrate: 20_000_000,
+    });
+    if (avcCheck.supported) {
+      const m = await import('https://unpkg.com/mp4-muxer/build/mp4-muxer.mjs');
+      MuxerCls = m.Muxer; ArrBufCls = m.ArrayBufferTarget;
+      muxerOpts = { video: { codec: 'avc', width: cw, height: ch, frameRate: fps }, fastStart: 'in-memory' };
+      encoderCodec = 'avc1.640028'; fileType = 'video/mp4'; fileExt = 'mp4';
+    } else {
+      const m = await import('https://unpkg.com/webm-muxer/build/webm-muxer.mjs');
+      MuxerCls = m.Muxer; ArrBufCls = m.ArrayBufferTarget;
+      muxerOpts = { video: { codec: 'V_VP9', width: cw, height: ch, frameRate: fps } };
+      encoderCodec = 'vp09.00.10.08'; fileType = 'video/webm'; fileExt = 'webm';
+    }
+
+    const target = new ArrBufCls();
+    const muxer = new MuxerCls({ target, ...muxerOpts });
+
+    const encoder = new VideoEncoder({
+      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+      error: e => console.error('VideoEncoder:', e),
+    });
+    encoder.configure({ codec: encoderCodec, width: cw, height: ch, bitrate: 20_000_000, framerate: fps });
+
+    // Deterministic render from frame 0 — particle state evolves naturally in sequence
+    buildParticles();
+    const savedFrame = frame;
+    frame = 0; _pixelSortTick = 0;
+
+    for (let f = 0; f < totalFrames; f++) {
+      frame = f + 1;
+      renderSingleFrame();
+
+      recCtx.clearRect(0, 0, cw, ch);
+      recCtx.drawImage(mainCanvas, ox, oy, cw, ch, 0, 0, cw, ch);
+      recCtx.globalCompositeOperation = 'screen';
+      recCtx.drawImage(glitchCanvas, ox, oy, cw, ch, 0, 0, cw, ch);
+      recCtx.globalCompositeOperation = 'source-over';
+
+      const vf = new VideoFrame(recCanvas, {
+        timestamp: Math.round(f * 1_000_000 / fps),
+        duration:  Math.round(1_000_000 / fps),
+      });
+      encoder.encode(vf, { keyFrame: f % (fps * 2) === 0 });
+      vf.close();
+
+      if (f % 20 === 0) {
+        recBtn.innerHTML = '⏳ &nbsp;' + Math.round(f / totalFrames * 100) + '%';
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+
+    await encoder.flush();
+    muxer.finalize();
+
+    const blob = new Blob([target.buffer], { type: fileType });
+    lastBlobUrl = URL.createObjectURL(blob);
+    dlBtn.dataset.url = lastBlobUrl;
+    dlBtn.dataset.ext = fileExt;
+    dlBtn.innerHTML = '⬇ &nbsp;DOWNLOAD ' + fileExt.toUpperCase();
+    dlBtn.style.display = '';
+    if (fileExt !== 'mp4') convertTipEl.style.display = '';
+
+    frame = savedFrame;
+    startAnim();
+
+  } catch (err) {
+    console.warn('Offline render failed:', err);
+  }
+
+  recBtn.innerHTML = '⏺ &nbsp;RECORD VIDEO';
+  recBtn.classList.remove('recording');
+  recBadge.classList.remove('show');
+  delete recBtn.dataset.rendering;
+}
 
 dlBtn.addEventListener('click', () => {
   if (!dlBtn.dataset.url) return;
@@ -1540,13 +1632,10 @@ function applyMode(m, p, t) {
   return _ar;
 }
 
-// ── Animation loop ─────────────────────────────────────────────────
-function loop() {
-  animId = requestAnimationFrame(loop);
-  frame++;
+// ── Core render — called by live loop and offline recorder ───────────
+function renderSingleFrame() {
   const w = mainCanvas.width, h = mainCanvas.height;
   const spd = settings.speed / 4;
-  const inten = settings.intensity / 5;
   const glitchAmt = settings.glitch;
 
   // Redraw base image scaled to current canvas resolution
@@ -1725,6 +1814,13 @@ function loop() {
   }
 
   gCtx.globalAlpha = 1;
+}
+
+// ── Animation loop ─────────────────────────────────────────────────
+function loop() {
+  animId = requestAnimationFrame(loop);
+  frame++;
+  renderSingleFrame();
 }
 </script>
 </body>

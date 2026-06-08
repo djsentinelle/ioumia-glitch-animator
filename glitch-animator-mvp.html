@@ -704,7 +704,9 @@
         <button class="fx-expand" data-target="params-rain">▾</button>
       </div><div class="fx-params" id="params-rain">
         <div class="slider-row"><span class="slider-label">Speed</span><input type="range" id="rainSpeedSlider" min="1" max="10" value="4"><span class="slider-val" id="rainSpeedVal">4</span></div>
-        <div class="slider-row"><span class="slider-label">Trail</span><input type="range" id="rainTrailSlider" min="1" max="10" value="5"><span class="slider-val" id="rainTrailVal">5</span></div>
+        <div class="slider-row"><span class="slider-label">Opacity</span><input type="range" id="rainOpacitySlider" min="1" max="10" value="5"><span class="slider-val" id="rainOpacityVal">5</span></div>
+        <div class="slider-row"><span class="slider-label">Trail</span><input type="range" id="rainTrailSlider" min="1" max="20" value="8"><span class="slider-val" id="rainTrailVal">8</span></div>
+        <div class="slider-row"><span class="slider-label">Fade</span><input type="range" id="rainFadeSlider" min="1" max="10" value="5"><span class="slider-val" id="rainFadeVal">5</span></div>
       </div></div>
 
       <div class="fx-block"><div class="fx-header">
@@ -1321,7 +1323,7 @@ const fx = {
   sparkle: { radius: 5,  speed: 4 },
   drift:   { amp: 4,     speed: 4 },
   pulse:   { scale: 8,   speed: 4 },
-  rain:    { speed: 4,   trail: 5 },
+  rain:    { speed: 4,   opacity: 5, trail: 8, fade: 5 },
   explode: { force: 8,   speed: 4 },
   rgb:     { spread: 3,  speed: 4 },
   blow:    { force: 10,  radius: 80 },
@@ -1344,7 +1346,9 @@ bindFxSlider('driftSpeedSlider',   'driftSpeedVal',   'drift',   'speed');
 bindFxSlider('pulseScaleSlider',   'pulseScaleVal',   'pulse',   'scale');
 bindFxSlider('pulseSpeedSlider',   'pulseSpeedVal',   'pulse',   'speed');
 bindFxSlider('rainSpeedSlider',    'rainSpeedVal',    'rain',    'speed');
+bindFxSlider('rainOpacitySlider',  'rainOpacityVal',  'rain',    'opacity');
 bindFxSlider('rainTrailSlider',    'rainTrailVal',    'rain',    'trail');
+bindFxSlider('rainFadeSlider',     'rainFadeVal',     'rain',    'fade');
 bindFxSlider('explodeForceSlider', 'explodeForceVal', 'explode', 'force');
 bindFxSlider('explodeSpeedSlider', 'explodeSpeedVal', 'explode', 'speed');
 bindFxSlider('rgbSpreadSlider',    'rgbSpreadVal',    'rgb',     'spread');
@@ -1589,21 +1593,17 @@ function loop() {
       life = 0.4 + 0.6 * Math.abs(Math.sin(pt));
 
     } else if (m === 'rain') {
-      // Rain starts from particle's own position on the drawing and falls down
       if (p.rainY === undefined) {
-        // Stagger start: some particles start mid-fall using a random offset
         p.rainY = p.oy + Math.random() * (h - p.oy);
       }
       const rainSpd = fx.rain.speed / 4;
-      const rainTrail = fx.rain.trail / 10;
+      const rainOpacity = fx.rain.opacity / 10;
       p.rainY += rainSpd * 1.5 * p.speed;
-      // When a drop reaches the bottom, reset to its origin on the drawing
       if (p.rainY > h + 10) p.rainY = p.oy;
-      x = p.ox + (Math.random() - 0.5) * 0.8; // tiny horizontal shimmer
+      x = p.ox + (Math.random() - 0.5) * 0.8;
       y = p.rainY;
-      // Fade out as it gets further from origin
       const distFromOrigin = Math.max(0, p.rainY - p.oy) / (h - p.oy + 1);
-      life = Math.max(0.05, (1 - distFromOrigin) * rainTrail * 1.8);
+      life = Math.max(0.05, (1 - distFromOrigin) * rainOpacity * 1.8);
 
     } else if (m === 'explode') {
       const cx = w / 2, cy = h / 2;
@@ -1700,6 +1700,25 @@ function loop() {
         gCtx.globalAlpha = alpha;
         gCtx.fillStyle = `rgb(${pr},${pg},${pb})`;
         gCtx.fillRect(x, y, pSize, pSize);
+        // Rain shooting-star trail — gradient line drawn upward from the drop
+        if (m === 'rain' && fx.rain.trail > 0) {
+          const trailLen = fx.rain.trail * 6;
+          const fadeMid  = Math.max(0.02, 1 - fx.rain.fade / 11);
+          const cx = x + pSize / 2;
+          const grad = gCtx.createLinearGradient(cx, y, cx, y - trailLen);
+          grad.addColorStop(0,       `rgba(${pr},${pg},${pb},${alpha})`);
+          grad.addColorStop(fadeMid, `rgba(${pr},${pg},${pb},${(alpha * 0.15).toFixed(3)})`);
+          grad.addColorStop(1,       `rgba(${pr},${pg},${pb},0)`);
+          gCtx.save();
+          gCtx.globalAlpha = 1;
+          gCtx.strokeStyle = grad;
+          gCtx.lineWidth = Math.max(1, pSize);
+          gCtx.beginPath();
+          gCtx.moveTo(cx, y);
+          gCtx.lineTo(cx, y - trailLen);
+          gCtx.stroke();
+          gCtx.restore();
+        }
       }
     }
   }

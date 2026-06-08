@@ -731,6 +731,7 @@
       </div><div class="fx-params" id="params-blow">
         <div class="slider-row"><span class="slider-label">Force</span><input type="range" id="blowForceSlider" min="1" max="20" value="10"><span class="slider-val" id="blowForceVal">10</span></div>
         <div class="slider-row"><span class="slider-label">Radius</span><input type="range" id="blowRadiusSlider" min="20" max="300" value="80"><span class="slider-val" id="blowRadiusVal">80</span></div>
+        <div class="slider-row"><span class="slider-label">Chaos</span><input type="range" id="blowChaosSlider" min="0" max="10" value="0"><span class="slider-val" id="blowChaosVal">0</span></div>
       </div></div>
 
     </div>
@@ -739,16 +740,17 @@
     <div class="slider-group">
       <div class="section-title">GLOBAL</div>
       <div class="slider-row"><span class="slider-label">Size</span><input type="range" id="sizeSlider" min="1" max="8" value="2"><span class="slider-val" id="sizeVal">2</span></div>
-      <div class="slider-row"><span class="slider-label">Density</span><input type="range" id="densitySlider" min="1" max="5" value="3"><span class="slider-val" id="densityVal">3</span></div>
+      <div class="slider-row"><span class="slider-label">Density</span><input type="range" id="densitySlider" min="1" max="10" value="5"><span class="slider-val" id="densityVal">5</span></div>
       <div class="slider-row"><span class="slider-label">Glitch</span><input type="range" id="glitchSlider" min="0" max="10" value="3"><span class="slider-val" id="glitchVal">3</span></div>
+      <div class="slider-row"><span class="slider-label">Resolution</span><input type="range" id="resolutionSlider" min="10" max="100" step="10" value="100"><span class="slider-val" id="resolutionVal">100%</span></div>
     </div>
 
     <!-- Tint -->
     <div class="slider-group">
       <div class="section-title">TINT <span style="opacity:0.35;font-size:8px">skip white</span></div>
-      <div class="slider-row"><span class="slider-label" style="color:#ff5566">Red</span><input type="range" id="rSlider" min="-255" max="255" value="0"><span class="slider-val" id="rVal">0</span></div>
-      <div class="slider-row"><span class="slider-label" style="color:#44ee88">Green</span><input type="range" id="gSlider" min="-255" max="255" value="0"><span class="slider-val" id="gVal">0</span></div>
-      <div class="slider-row"><span class="slider-label" style="color:#44aaff">Blue</span><input type="range" id="bSlider" min="-255" max="255" value="0"><span class="slider-val" id="bVal">0</span></div>
+      <div class="slider-row"><span class="slider-label" style="color:#ff5566">Red</span><input type="range" id="rSlider" min="-255" max="0" value="0"><span class="slider-val" id="rVal">0</span></div>
+      <div class="slider-row"><span class="slider-label" style="color:#44ee88">Green</span><input type="range" id="gSlider" min="-255" max="0" value="0"><span class="slider-val" id="gVal">0</span></div>
+      <div class="slider-row"><span class="slider-label" style="color:#44aaff">Blue</span><input type="range" id="bSlider" min="-255" max="0" value="0"><span class="slider-val" id="bVal">0</span></div>
     </div>
 
     <!-- Image FX -->
@@ -829,6 +831,24 @@ renderPane.addEventListener('wheel', e => {
   setZoom(zoomLevel - e.deltaY * 0.002);
 }, { passive: false });
 
+// ── Resolution ─────────────────────────────────────────────────────
+function applyResolution() {
+  if (!img) return;
+  const factor = settings.resolution / 100;
+  mainCanvas.width    = Math.max(1, Math.round(img.naturalWidth  * factor));
+  mainCanvas.height   = Math.max(1, Math.round(img.naturalHeight * factor));
+  glitchCanvas.width  = mainCanvas.width;
+  glitchCanvas.height = mainCanvas.height;
+  mCtx.drawImage(img, 0, 0, mainCanvas.width, mainCanvas.height);
+  buildParticles();
+}
+
+document.getElementById('resolutionSlider').addEventListener('input', function () {
+  settings.resolution = parseInt(this.value);
+  document.getElementById('resolutionVal').textContent = this.value + '%';
+  applyResolution();
+});
+
 // ── State ──────────────────────────────────────────────────────────
 let img = null;
 let animId = null;
@@ -837,7 +857,7 @@ let particles = [];
 const activeModes = new Set(['sparkle']);
 let frame = 0;
 
-const settings = { intensity: 5, speed: 4, size: 2, glitch: 3, sparkle: 5, density: 3 };
+const settings = { intensity: 5, speed: 4, size: 2, glitch: 3, sparkle: 5, density: 5, resolution: 100 };
 const tint = { r: 0, g: 0, b: 0 };
 // ── Blow effect: cursor/touch position ───────────────────────────
 const cursor = { x: -9999, y: -9999, active: false }; // RGB tint (-255..255), skips white pixels
@@ -1240,11 +1260,11 @@ function loadFile(file) {
   const url = URL.createObjectURL(file);
   img = new Image();
   img.onload = () => {
-    mainCanvas.width  = img.naturalWidth;
-    mainCanvas.height = img.naturalHeight;
-    glitchCanvas.width  = img.naturalWidth;
-    glitchCanvas.height = img.naturalHeight;
-    mCtx.drawImage(img, 0, 0);
+    // Reset resolution to 100% for each new image
+    settings.resolution = 100;
+    document.getElementById('resolutionSlider').value = 100;
+    document.getElementById('resolutionVal').textContent = '100%';
+    applyResolution();
     dropZone.style.display = 'none';
     wrapper.classList.add('visible');
     controls.style.display = 'flex';
@@ -1259,7 +1279,6 @@ function loadFile(file) {
       const fit = Math.min(paneW / displayW, paneH / displayH, 1);
       setZoom(fit);
     });
-    buildParticles();
   };
   img.src = url;
 }
@@ -1269,7 +1288,7 @@ function buildParticles() {
   particles = [];
   const w = mainCanvas.width, h = mainCanvas.height;
   const data = mCtx.getImageData(0, 0, w, h).data;
-  const step = Math.max(1, 6 - settings.density); // density slider: 1=sparse(step5) to 5=dense(step1)
+  const step = Math.max(1, Math.ceil(12 / settings.density)); // 1=step12(very sparse) → 10=step1(all pixels)
 
   for (let y = 0; y < h; y += step) {
     for (let x = 0; x < w; x += step) {
@@ -1326,7 +1345,7 @@ const fx = {
   rain:    { speed: 4,   opacity: 5, trail: 8, fade: 5 },
   explode: { force: 8,   speed: 4 },
   rgb:     { spread: 3,  speed: 4 },
-  blow:    { force: 10,  radius: 80 },
+  blow:    { force: 10,  radius: 80, chaos: 0 },
 };
 
 function bindFxSlider(id, valId, effect, key) {
@@ -1355,6 +1374,7 @@ bindFxSlider('rgbSpreadSlider',    'rgbSpreadVal',    'rgb',     'spread');
 bindFxSlider('rgbSpeedSlider',     'rgbSpeedVal',     'rgb',     'speed');
 bindFxSlider('blowForceSlider',    'blowForceVal',    'blow',    'force');
 bindFxSlider('blowRadiusSlider',   'blowRadiusVal',   'blow',    'radius');
+bindFxSlider('blowChaosSlider',    'blowChaosVal',    'blow',    'chaos');
 
 // ── Expand/collapse param panels ─────────────────────────────────
 document.querySelectorAll('.fx-expand').forEach(btn => {
@@ -1429,7 +1449,7 @@ function stopAnim() {
   // Restore original image
   if (img) {
     mCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
-    mCtx.drawImage(img, 0, 0);
+    mCtx.drawImage(img, 0, 0, mainCanvas.width, mainCanvas.height);
     gCtx.clearRect(0, 0, glitchCanvas.width, glitchCanvas.height);
   }
 }
@@ -1443,38 +1463,23 @@ function loop() {
   const inten = settings.intensity / 5;
   const glitchAmt = settings.glitch;
 
-  // Redraw base image
+  // Redraw base image scaled to current canvas resolution
   mCtx.clearRect(0, 0, w, h);
   mCtx.globalAlpha = 1;
-  mCtx.drawImage(img, 0, 0);
+  mCtx.drawImage(img, 0, 0, w, h);
 
 
   // ── RGB Color Overlay (screen blend — skips black, preserves white) ──────
   if (tint.r !== 0 || tint.g !== 0 || tint.b !== 0) {
-    // Convert -255..255 to 0..255 color + opacity
-    // Positive = add color via screen, negative = subtract via multiply
+    const cr = Math.round(255 + tint.r);
+    const cg = Math.round(255 + tint.g);
+    const cb = Math.round(255 + tint.b);
+    const strength = Math.max(255 - cr, 255 - cg, 255 - cb) / 255;
     mCtx.save();
-    if (tint.r > 0 || tint.g > 0 || tint.b > 0) {
-      const cr = Math.max(0, tint.r);
-      const cg = Math.max(0, tint.g);
-      const cb = Math.max(0, tint.b);
-      const strength = Math.max(cr, cg, cb) / 255;
-      mCtx.globalCompositeOperation = 'screen';
-      mCtx.globalAlpha = strength * 0.9;
-      mCtx.fillStyle = `rgb(${cr},${cg},${cb})`;
-      mCtx.fillRect(0, 0, w, h);
-    }
-    if (tint.r < 0 || tint.g < 0 || tint.b < 0) {
-      // Negative tint: desaturate that channel using 'multiply' with inverse color
-      const cr = tint.r < 0 ? Math.round(255 + tint.r) : 255;
-      const cg = tint.g < 0 ? Math.round(255 + tint.g) : 255;
-      const cb = tint.b < 0 ? Math.round(255 + tint.b) : 255;
-      const strength = Math.max(255 - cr, 255 - cg, 255 - cb) / 255;
-      mCtx.globalCompositeOperation = 'multiply';
-      mCtx.globalAlpha = strength * 0.85;
-      mCtx.fillStyle = `rgb(${cr},${cg},${cb})`;
-      mCtx.fillRect(0, 0, w, h);
-    }
+    mCtx.globalCompositeOperation = 'multiply';
+    mCtx.globalAlpha = strength * 0.85;
+    mCtx.fillStyle = `rgb(${cr},${cg},${cb})`;
+    mCtx.fillRect(0, 0, w, h);
     mCtx.restore();
   }
 
@@ -1556,8 +1561,8 @@ function loop() {
   // ── Draw particles ─────────────────────────────────────────────
   gCtx.clearRect(0, 0, w, h);
 
-  const subset = particles.length > 8000
-    ? particles.filter((_, i) => i % Math.ceil(particles.length / 8000) === 0)
+  const subset = particles.length > 20000
+    ? particles.filter((_, i) => i % Math.ceil(particles.length / 20000) === 0)
     : particles;
 
   const pSize = settings.size * 0.8;
@@ -1628,12 +1633,14 @@ function loop() {
       isRgb = true;
 
     } else if (m === 'blow') {
-      // Particles are repelled from the cursor, then spring back to origin
-      const blowRadius = fx.blow.radius;
-      const blowForce  = fx.blow.force / 10;
+      const blowForce = fx.blow.force / 10;
       const dx = p.ox - cursor.x;
       const dy = p.oy - cursor.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
+      // Chaos deforms the circle: each particle has a unique radius offset driven by its phase
+      const chaosAmt = fx.blow.chaos / 10;
+      const noise = Math.sin(p.phase * 13.7) * 0.6 + Math.sin(p.phase * 7.3) * 0.4;
+      const blowRadius = fx.blow.radius * (1 + chaosAmt * noise * 2);
       if (dist < blowRadius && dist > 0) {
         const force = (1 - dist / blowRadius) * blowRadius * 0.5 * blowForce;
         p.vx += (dx / dist) * force * 0.15;

@@ -14,7 +14,6 @@ export function initZoom(): void {
   document.getElementById('zoomIn')!.addEventListener('click',    () => setZoom(state.zoomLevel + 0.25))
   document.getElementById('zoomOut')!.addEventListener('click',   () => setZoom(state.zoomLevel - 0.25))
   document.getElementById('zoomReset')!.addEventListener('click', () => setZoom(1))
-
   renderPane.addEventListener('wheel', e => {
     if (!e.ctrlKey && !e.metaKey) return
     e.preventDefault()

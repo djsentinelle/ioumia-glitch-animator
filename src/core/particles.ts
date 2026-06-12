@@ -1,4 +1,5 @@
 import { state, settings, mainCanvas, glitchCanvas, mCtx } from '../state'
+import type { Particle } from '../types'
 
 export function buildParticles(): void {
   state.particles = []
@@ -9,14 +10,14 @@ export function buildParticles(): void {
   for (let y = 0; y < h; y += step) {
     for (let x = 0; x < w; x += step) {
       const i = (y * w + x) * 4
-      const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3]
+      const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3]
       const maxChannel = Math.max(r, g, b)
       if (a > 30 && maxChannel > 12) {
-        const boost   = Math.min(255, Math.round(r * 2.5))
-        const gboost  = Math.min(255, Math.round(g * 2.5))
-        const bboost  = Math.min(255, Math.round(b * 2.5))
+        const boost  = Math.min(255, Math.round(r * 2.5))
+        const gboost = Math.min(255, Math.round(g * 2.5))
+        const bboost = Math.min(255, Math.round(b * 2.5))
         const weightedA = Math.min(255, Math.round((maxChannel / 255) * 255 * 2))
-        state.particles.push({
+        const p: Particle = {
           ox: x, oy: y, x, y,
           r: boost, g: gboost, b: bboost, a: weightedA,
           phase: Math.random() * Math.PI * 2,
@@ -25,7 +26,8 @@ export function buildParticles(): void {
           vx: 0, vy: 0,
           life: 1,
           rainY: undefined,
-        })
+        }
+        state.particles.push(p)
       }
     }
   }

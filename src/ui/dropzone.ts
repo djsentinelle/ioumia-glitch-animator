@@ -13,7 +13,7 @@ export function loadFile(file: File): void {
     applyResolution()
     dropZone.style.display = 'none'
     wrapper.classList.add('visible')
-    controls.style.display      = 'flex'
+    controls.style.display = 'flex'
     controls.style.flexDirection = 'column'
     zoomBar.classList.add('visible')
     requestAnimationFrame(() => {
@@ -29,16 +29,11 @@ export function loadFile(file: File): void {
 
 export function initDropzone(): void {
   dropZone.addEventListener('click', () => fileInput.click())
-
   fileInput.addEventListener('change', e => {
     const files = (e.target as HTMLInputElement).files
     if (files?.[0]) loadFile(files[0])
   })
-
-  dropZone.addEventListener('dragover', e => {
-    e.preventDefault()
-    dropZone.style.borderColor = '#00ffb4'
-  })
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = '#00ffb4' })
   dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '' })
   dropZone.addEventListener('drop', e => {
     e.preventDefault()

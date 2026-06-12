@@ -17,8 +17,6 @@
 </header>
 
 <div class="main">
-
-  <!-- Render pane -->
   <div class="render-pane" id="renderPane">
     <div class="zoom-bar" id="zoomBar">
       <button class="zoom-btn" id="zoomOut">−</button>
@@ -27,13 +25,11 @@
       <button class="zoom-btn" id="zoomReset" title="Reset zoom">↺</button>
     </div>
     <div class="zoom-container" id="zoomContainer">
-      <!-- Drop zone -->
       <div class="drop-zone" id="dropZone">
         <div class="drop-icon">⬡</div>
         <div class="drop-text">Tap to load your drawing</div>
         <div class="drop-text" style="opacity:0.4; font-size:9px;">PNG · JPG · WEBP</div>
       </div>
-      <!-- Canvas (hidden until image loaded) -->
       <div class="canvas-wrapper" id="canvasWrapper">
         <canvas id="mainCanvas"></canvas>
         <canvas id="glitchCanvas"></canvas>
@@ -42,12 +38,8 @@
     <input type="file" id="fileInput" accept="image/*">
   </div>
 
-  <!-- Settings pane -->
   <div class="settings-pane" id="settingsPane">
-  <!-- Controls -->
   <div class="controls" id="controls" style="display:none">
-
-    <!-- Play/Stop -->
     <div class="ctrl-row">
       <button class="btn" id="playBtn">▶ &nbsp;PLAY</button>
       <button class="btn danger" id="resetBtn">↺ &nbsp;RESET</button>
@@ -55,7 +47,6 @@
     <button class="btn" id="clearFxBtn" style="border-color:rgba(255,100,50,0.4);color:rgba(255,130,80,0.8)">✕ &nbsp;CLEAR ALL EFFECTS</button>
     <button class="cinema-btn" id="cinemaBtn">⛶ &nbsp;SCREEN RECORD MODE</button>
 
-    <!-- Effects with inline params -->
     <div>
       <div class="section-title" style="margin-bottom:8px">EFFECTS <span style="opacity:0.35;font-size:8px">tap=toggle · ▾=params</span></div>
 
@@ -117,10 +108,8 @@
         <div class="slider-row"><span class="slider-label">Radius</span><input type="range" id="blowRadiusSlider" min="20" max="300" value="80"><span class="slider-val" id="blowRadiusVal">80</span></div>
         <div class="slider-row"><span class="slider-label">Chaos</span><input type="range" id="blowChaosSlider" min="0" max="10" value="0"><span class="slider-val" id="blowChaosVal">0</span></div>
       </div></div>
-
     </div>
 
-    <!-- Global settings -->
     <div class="slider-group">
       <div class="section-title">GLOBAL</div>
       <div class="slider-row"><span class="slider-label">Size</span><input type="range" id="sizeSlider" min="1" max="8" value="2"><span class="slider-val" id="sizeVal">2</span></div>
@@ -129,7 +118,6 @@
       <div class="slider-row"><span class="slider-label">Resolution</span><input type="range" id="resolutionSlider" min="10" max="100" step="10" value="100"><span class="slider-val" id="resolutionVal">100%</span></div>
     </div>
 
-    <!-- Tint -->
     <div class="slider-group">
       <div class="section-title">TINT <span style="opacity:0.35;font-size:8px">skip white</span></div>
       <div class="slider-row"><span class="slider-label" style="color:#ff5566">Red</span><input type="range" id="rSlider" min="-255" max="0" value="0"><span class="slider-val" id="rVal">0</span></div>
@@ -137,7 +125,6 @@
       <div class="slider-row"><span class="slider-label" style="color:#44aaff">Blue</span><input type="range" id="bSlider" min="-255" max="0" value="0"><span class="slider-val" id="bVal">0</span></div>
     </div>
 
-    <!-- Image FX -->
     <div>
       <div class="section-title" style="margin-bottom:6px">IMAGE FX</div>
       <div class="fx-grid">
@@ -146,7 +133,6 @@
       </div>
     </div>
 
-    <!-- Record row -->
     <div>
       <div class="section-title" style="margin-bottom:6px">Recording</div>
       <div class="dur-row" style="margin-bottom:8px">
@@ -163,21 +149,14 @@
         <button class="btn download" id="dlGifBtn" style="display:none;color:#ffe04b;border-color:rgba(255,224,75,0.5)">⬇ &nbsp;DOWNLOAD GIF</button>
       </div>
       <div id="convertTip" style="display:none;margin-top:8px">
-        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:1px">
-          Convert to MP4 →
-        </span>
-        <a href="https://cloudconvert.com/webm-to-mp4" target="_blank"
-           style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#00ffb4;letter-spacing:1px;text-decoration:none">
-          cloudconvert.com ↗
-        </a>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:1px">Convert to MP4 → </span>
+        <a href="https://cloudconvert.com/webm-to-mp4" target="_blank" style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#00ffb4;letter-spacing:1px;text-decoration:none">cloudconvert.com ↗</a>
       </div>
     </div>
 
     <div class="rec-timer" id="recTimer">● REC &nbsp;<span id="recTime">0:00</span></div>
   </div>
-
-  </div><!-- /settings-pane -->
-
+  </div>
 </div>
 
 <div id="cinemaHint">DOUBLE TAP TO EXIT</div>

@@ -1,36 +1,46 @@
-import { state, recState, importCdn, mainCanvas, glitchCanvas, recCanvas, recCtx, recBtn, recBadge, dlBtn, convertTipEl, durInput } from '../state'
+import {
+  state, recState, importCdn,
+  mainCanvas, glitchCanvas, recCanvas, recCtx,
+  recBtn, recBadge, dlBtn, convertTipEl, durInput,
+} from '../state'
+import { renderSingleFrame } from '../core/renderer'
 import { buildParticles } from '../core/particles'
-import { renderSingleFrame, startAnim, stopAnim } from '../core/renderer'
+import { startAnim, stopAnim } from '../core/renderer'
 
 export async function startOfflineRecording(): Promise<void> {
   const fps = 60
   const durationSecs = Math.max(1, parseFloat(durInput.value) || 10)
-  const totalFrames  = Math.round(durationSecs * fps)
-  if (!recState.cropBounds) return
-  const { x: ox, y: oy, w: cw, h: ch } = recState.cropBounds
+  const totalFrames = Math.round(durationSecs * fps)
+  const { x: ox, y: oy, w: cw, h: ch } = recState.cropBounds!
 
   recBtn.dataset.rendering = '1'
   recBtn.classList.add('recording')
   recBtn.innerHTML = '⏳ &nbsp;0%'
   recBadge.classList.add('show')
+
   stopAnim()
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let MuxerCls: any, ArrBufCls: any, muxerOpts: any, encoderCodec: string, fileType: string, fileExt: string
+    let MuxerCls: new (opts: Record<string, unknown>) => { addVideoChunk: (...a: unknown[]) => void; finalize: () => void }
+    let ArrBufCls: new () => { buffer: ArrayBuffer }
+    let muxerOpts: Record<string, unknown>
+    let encoderCodec: string
+    let fileType: string
+    let fileExt: string
 
-    const avcCheck = await VideoEncoder.isConfigSupported({
-      codec: 'avc1.640028', width: cw, height: ch, bitrate: 20_000_000,
-    })
+    const avcCheck = await (VideoEncoder as unknown as { isConfigSupported: (c: object) => Promise<{ supported: boolean }> })
+      .isConfigSupported({ codec: 'avc1.640028', width: cw, height: ch, bitrate: 20_000_000 })
 
     if (avcCheck.supported) {
       const m = await importCdn('https://unpkg.com/mp4-muxer/build/mp4-muxer.mjs')
-      MuxerCls = m['Muxer']; ArrBufCls = m['ArrayBufferTarget']
+      MuxerCls = m.Muxer as typeof MuxerCls
+      ArrBufCls = m.ArrayBufferTarget as typeof ArrBufCls
       muxerOpts = { video: { codec: 'avc', width: cw, height: ch, frameRate: fps }, fastStart: 'in-memory' }
       encoderCodec = 'avc1.640028'; fileType = 'video/mp4'; fileExt = 'mp4'
     } else {
       const m = await importCdn('https://unpkg.com/webm-muxer/build/webm-muxer.mjs')
-      MuxerCls = m['Muxer']; ArrBufCls = m['ArrayBufferTarget']
+      MuxerCls = m.Muxer as typeof MuxerCls
+      ArrBufCls = m.ArrayBufferTarget as typeof ArrBufCls
       muxerOpts = { video: { codec: 'V_VP9', width: cw, height: ch, frameRate: fps } }
       encoderCodec = 'vp09.00.10.08'; fileType = 'video/webm'; fileExt = 'webm'
     }
@@ -39,8 +49,8 @@ export async function startOfflineRecording(): Promise<void> {
     const muxer  = new MuxerCls({ target, ...muxerOpts })
 
     const encoder = new VideoEncoder({
-      output: (chunk: EncodedVideoChunk, meta?: EncodedVideoChunkMetadata) => muxer.addVideoChunk(chunk, meta),
-      error:  (e: Error) => console.error('VideoEncoder:', e),
+      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+      error: e => console.error('VideoEncoder:', e),
     })
     encoder.configure({ codec: encoderCodec, width: cw, height: ch, bitrate: 20_000_000, framerate: fps })
 
@@ -51,7 +61,6 @@ export async function startOfflineRecording(): Promise<void> {
     for (let f = 0; f < totalFrames; f++) {
       state.frame = f + 1
       renderSingleFrame()
-
       recCtx.clearRect(0, 0, cw, ch)
       recCtx.drawImage(mainCanvas, ox, oy, cw, ch, 0, 0, cw, ch)
       recCtx.globalCompositeOperation = 'screen'
@@ -67,7 +76,7 @@ export async function startOfflineRecording(): Promise<void> {
 
       if (f % 20 === 0) {
         recBtn.innerHTML = '⏳ &nbsp;' + Math.round(f / totalFrames * 100) + '%'
-        await new Promise<void>(r => setTimeout(r, 0))
+        await new Promise(r => setTimeout(r, 0))
       }
     }
 
@@ -86,7 +95,7 @@ export async function startOfflineRecording(): Promise<void> {
     startAnim()
 
   } catch (err) {
-    console.error('Offline render failed:', err)
+    console.warn('Offline render failed:', err)
   }
 
   recBtn.innerHTML = '⏺ &nbsp;RECORD VIDEO'

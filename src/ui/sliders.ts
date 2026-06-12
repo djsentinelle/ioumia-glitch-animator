@@ -30,7 +30,6 @@ export function initSliders(): void {
   bindFxSlider('blowRadiusSlider',   'blowRadiusVal',   'blow',    'radius')
   bindFxSlider('blowChaosSlider',    'blowChaosVal',    'blow',    'chaos')
 
-  // RGB tint
   ;(['r', 'g', 'b'] as const).forEach(ch => {
     const slider = document.getElementById(ch + 'Slider') as HTMLInputElement
     const valEl  = document.getElementById(ch + 'Val')!
@@ -40,7 +39,6 @@ export function initSliders(): void {
     })
   })
 
-  // Expand/collapse per-effect param panels
   document.querySelectorAll('.fx-expand').forEach(btn => {
     btn.addEventListener('click', () => {
       const target = (btn as HTMLElement).dataset.target

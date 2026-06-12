@@ -14,9 +14,9 @@ export function initRecordingUI(): void {
 
   dlBtn.addEventListener('click', () => {
     if (!dlBtn.dataset.url) return
-    const a      = document.createElement('a')
-    a.href       = dlBtn.dataset.url
-    a.download   = 'glitch-animation.' + (dlBtn.dataset.ext ?? 'mp4')
+    const a = document.createElement('a')
+    a.href = dlBtn.dataset.url
+    a.download = 'glitch-animation.' + (dlBtn.dataset.ext ?? 'mp4')
     a.click()
   })
 
@@ -26,8 +26,8 @@ export function initRecordingUI(): void {
 
   dlGifBtn.addEventListener('click', () => {
     if (!dlGifBtn.dataset.url) return
-    const a    = document.createElement('a')
-    a.href     = dlGifBtn.dataset.url
+    const a = document.createElement('a')
+    a.href = dlGifBtn.dataset.url
     a.download = 'glitch-animation.gif'
     a.click()
   })

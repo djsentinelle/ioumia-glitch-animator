@@ -1,4 +1,3 @@
-import type { CropBounds } from '../types'
 import {
   state, recState,
   mainCanvas, glitchCanvas, recCanvas, recCtx,
@@ -6,16 +5,16 @@ import {
 } from '../state'
 import { startOfflineRecording } from './offline'
 
-export function getDrawingBounds(sourceCanvas: HTMLCanvasElement): CropBounds {
-  const ctx = sourceCanvas.getContext('2d')!
-  const w = sourceCanvas.width, h = sourceCanvas.height
+export function getDrawingBounds(canvas: HTMLCanvasElement): { x: number; y: number; w: number; h: number } {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!
+  const w = canvas.width, h = canvas.height
   const data = ctx.getImageData(0, 0, w, h).data
   let minX = w, minY = h, maxX = 0, maxY = 0
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4
-      const brightness = (data[i] + data[i+1] + data[i+2]) / 3
-      if (data[i+3] > 10 && brightness > 8) {
+      const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3
+      if (data[i + 3] > 10 && brightness > 8) {
         if (x < minX) minX = x
         if (x > maxX) maxX = x
         if (y < minY) minY = y
@@ -47,7 +46,6 @@ export async function startRecording(): Promise<void> {
     return
   }
 
-  // Fallback: live captureStream (Firefox / older browsers)
   recState.recordedChunks = []
   const mimeType =
     MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2') ? 'video/mp4;codecs=avc1,mp4a.40.2' :
@@ -66,7 +64,7 @@ export async function startRecording(): Promise<void> {
   }
 
   recState.mediaRecorder.onstop = () => {
-    if (recState.recTimerInterval) { clearInterval(recState.recTimerInterval); recState.recTimerInterval = null }
+    clearInterval(recState.recTimerInterval)
     recTimer.classList.remove('show')
     recBtn.classList.remove('recording')
     recBtn.innerHTML = '⏺ &nbsp;VIDEO'
@@ -92,8 +90,8 @@ export async function startRecording(): Promise<void> {
     }, durSecs * 1000)
   }
 
-  recState.recTimerInterval = setInterval(() => {
-    const elapsed = Math.floor((Date.now() - (recState.recStartTime ?? Date.now())) / 1000)
+  recState.recTimerInterval = window.setInterval(() => {
+    const elapsed = Math.floor((Date.now() - recState.recStartTime) / 1000)
     const m = Math.floor(elapsed / 60)
     const s = elapsed % 60
     recTimeEl.textContent = m + ':' + s.toString().padStart(2, '0')
@@ -103,8 +101,8 @@ export async function startRecording(): Promise<void> {
 }
 
 export function compositeLoop(): void {
-  if (!recState.mediaRecorder || recState.mediaRecorder.state !== 'recording' || !recState.cropBounds) return
-  const { x, y, w, h } = recState.cropBounds
+  if (!recState.mediaRecorder || recState.mediaRecorder.state !== 'recording') return
+  const { x, y, w, h } = recState.cropBounds!
   recCtx.clearRect(0, 0, w, h)
   recCtx.drawImage(mainCanvas, x, y, w, h, 0, 0, w, h)
   recCtx.globalCompositeOperation = 'screen'
@@ -114,5 +112,7 @@ export function compositeLoop(): void {
 }
 
 export function stopLiveRecording(): void {
-  if (recState.mediaRecorder && recState.mediaRecorder.state === 'recording') recState.mediaRecorder.stop()
+  if (recState.mediaRecorder && recState.mediaRecorder.state === 'recording') {
+    recState.mediaRecorder.stop()
+  }
 }

@@ -9,10 +9,8 @@ import { buildParticles } from '../core/particles'
 import { setZoom } from './zoom'
 
 export function initControls(): void {
-  // Play / Stop
   playBtn.addEventListener('click', () => { if (state.isPlaying) stopAnim(); else startAnim() })
 
-  // Reset
   resetBtn.addEventListener('click', () => {
     stopAnim()
     dropZone.style.display = ''
@@ -20,12 +18,11 @@ export function initControls(): void {
     controls.style.display = 'none'
     zoomBar.classList.remove('visible')
     setZoom(1)
-    state.img       = null
+    state.img = null
     state.particles = []
     fileInput.value = ''
   })
 
-  // Mirror / Pixel Sort
   mirrorBtn.addEventListener('click', () => {
     state.mirrorActive = !state.mirrorActive
     mirrorBtn.classList.toggle('active', state.mirrorActive)
@@ -36,13 +33,12 @@ export function initControls(): void {
     pixelSortBtn.classList.toggle('active', state.pixelSortActive)
   })
 
-  // Clear all effects
   document.getElementById('clearFxBtn')!.addEventListener('click', () => {
     activeModes.clear()
     state.modeList = []
     state.particles.forEach(p => { p.vx = 0; p.vy = 0; p.x = p.ox; p.y = p.oy })
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'))
-    state.mirrorActive    = false
+    state.mirrorActive = false
     state.pixelSortActive = false
     mirrorBtn.classList.remove('active')
     pixelSortBtn.classList.remove('active')
@@ -58,7 +54,6 @@ export function initControls(): void {
     document.getElementById('glitchVal')!.textContent = '0'
   })
 
-  // Mode buttons
   document.querySelectorAll('.mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const m = (btn as HTMLElement).dataset.mode
@@ -75,7 +70,6 @@ export function initControls(): void {
     })
   })
 
-  // Cinema mode
   cinemaBtn.addEventListener('click', () => {
     if (!state.isPlaying) startAnim()
     document.body.classList.add('cinema-mode')
@@ -95,7 +89,6 @@ export function initControls(): void {
     if (document.body.classList.contains('cinema-mode')) document.body.classList.remove('cinema-mode')
   })
 
-  // Blow effect: cursor tracking
   wrapper.addEventListener('mousemove', e => {
     const pos = getCursorPos(e, mainCanvas)
     cursor.x = pos.x; cursor.y = pos.y; cursor.active = true

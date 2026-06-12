@@ -464,7 +464,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 .rec-timer.show { display: block; }
 
-/* ── Cinéma mode (plein écran enregistrement iPad) ── */
+/* ── Cinéma mode ── */
 .cinema-btn {
   width: 100%;
   padding: 12px;

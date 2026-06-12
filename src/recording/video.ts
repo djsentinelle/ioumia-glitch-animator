@@ -6,7 +6,7 @@ import {
 import { startOfflineRecording } from './offline'
 
 export function getDrawingBounds(canvas: HTMLCanvasElement): { x: number; y: number; w: number; h: number } {
-  const ctx = canvas.getContext('2d')!
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!
   const w = canvas.width, h = canvas.height
   const data = ctx.getImageData(0, 0, w, h).data
   let minX = w, minY = h, maxX = 0, maxY = 0

@@ -1,7 +1,6 @@
 {
   "name": "ioumia-glitch-animator",
   "version": "1.0.0",
-  "description": "��#\u0000 \u0000i\u0000o\u0000u\u0000m\u0000i\u0000a\u0000-\u0000g\u0000l\u0000i\u0000t\u0000c\u0000h\u0000-\u0000a\u0000n\u0000i\u0000m\u0000a\u0000t\u0000o\u0000r\u0000\r\u0000 \u0000",
   "homepage": "https://github.com/djsentinelle/ioumia-glitch-animator#readme",
   "bugs": {
     "url": "https://github.com/djsentinelle/ioumia-glitch-animator/issues"
@@ -12,10 +11,16 @@
   },
   "license": "ISC",
   "author": "sentinelle",
-  "type": "commonjs",
-  "main": "index.js",
+  "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vite": "^5.4.21"
   }
 }

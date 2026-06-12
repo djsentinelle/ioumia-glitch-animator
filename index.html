@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ioumia glitch generator</title>
+<link rel="icon" type="image/svg+xml" href="/assets/kiki-favicon.svg">
+</head>
+<body>
+
+<header>
+  <img class="nav-logo" src="/assets/kiki.png" alt="kiki">
+  <div class="header-text">
+    <div class="logo">⸜(｡˃ ᵕ ˂ )⸝♡ ioumia<span>~</span>glitch generator ♡(˃ᵕ˂⸜)</div>
+    <div class="logo-jp">(っ˘ω˘ς ) グリッチ・ジェネレーター (ˊ˘ˋ)♡</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Render pane -->
+  <div class="render-pane" id="renderPane">
+    <div class="zoom-bar" id="zoomBar">
+      <button class="zoom-btn" id="zoomOut">−</button>
+      <span class="zoom-label" id="zoomLabel">100%</span>
+      <button class="zoom-btn" id="zoomIn">+</button>
+      <button class="zoom-btn" id="zoomReset" title="Reset zoom">↺</button>
+    </div>
+    <div class="zoom-container" id="zoomContainer">
+      <!-- Drop zone -->
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">⬡</div>
+        <div class="drop-text">Tap to load your drawing</div>
+        <div class="drop-text" style="opacity:0.4; font-size:9px;">PNG · JPG · WEBP</div>
+      </div>
+      <!-- Canvas (hidden until image loaded) -->
+      <div class="canvas-wrapper" id="canvasWrapper">
+        <canvas id="mainCanvas"></canvas>
+        <canvas id="glitchCanvas"></canvas>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+
+  <!-- Settings pane -->
+  <div class="settings-pane" id="settingsPane">
+  <!-- Controls -->
+  <div class="controls" id="controls" style="display:none">
+
+    <!-- Play/Stop -->
+    <div class="ctrl-row">
+      <button class="btn" id="playBtn">▶ &nbsp;PLAY</button>
+      <button class="btn danger" id="resetBtn">↺ &nbsp;RESET</button>
+    </div>
+    <button class="btn" id="clearFxBtn" style="border-color:rgba(255,100,50,0.4);color:rgba(255,130,80,0.8)">✕ &nbsp;CLEAR ALL EFFECTS</button>
+    <button class="cinema-btn" id="cinemaBtn">⛶ &nbsp;SCREEN RECORD MODE</button>
+
+    <!-- Effects with inline params -->
+    <div>
+      <div class="section-title" style="margin-bottom:8px">EFFECTS <span style="opacity:0.35;font-size:8px">tap=toggle · ▾=params</span></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn active" data-mode="sparkle">✦ Sparkle</button>
+        <button class="fx-expand" data-target="params-sparkle">▾</button>
+      </div><div class="fx-params" id="params-sparkle">
+        <div class="slider-row"><span class="slider-label">Radius</span><input type="range" id="sparkleSlider" min="1" max="20" value="5"><span class="slider-val" id="sparkleVal">5</span></div>
+        <div class="slider-row"><span class="slider-label">Speed</span><input type="range" id="sparkleSpeedSlider" min="1" max="10" value="4"><span class="slider-val" id="sparkleSpeedVal">4</span></div>
+      </div></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn" data-mode="drift">⇢ Drift</button>
+        <button class="fx-expand" data-target="params-drift">▾</button>
+      </div><div class="fx-params" id="params-drift">
+        <div class="slider-row"><span class="slider-label">Amplitude</span><input type="range" id="driftAmpSlider" min="1" max="20" value="4"><span class="slider-val" id="driftAmpVal">4</span></div>
+        <div class="slider-row"><span class="slider-label">Speed</span><input type="range" id="driftSpeedSlider" min="1" max="10" value="4"><span class="slider-val" id="driftSpeedVal">4</span></div>
+      </div></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn" data-mode="pulse">◎ Pulse</button>
+        <button class="fx-expand" data-target="params-pulse">▾</button>
+      </div><div class="fx-params" id="params-pulse">
+        <div class="slider-row"><span class="slider-label">Scale</span><input type="range" id="pulseScaleSlider" min="1" max="20" value="8"><span class="slider-val" id="pulseScaleVal">8</span></div>
+        <div class="slider-row"><span class="slider-label">Speed</span><input type="range" id="pulseSpeedSlider" min="1" max="10" value="4"><span class="slider-val" id="pulseSpeedVal">4</span></div>
+      </div></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn" data-mode="rain">↓ Rain</button>
+        <button class="fx-expand" data-target="params-rain">▾</button>
+      </div><div class="fx-params" id="params-rain">
+        <div class="slider-row"><span class="slider-label">Speed</span><input type="range" id="rainSpeedSlider" min="1" max="10" value="4"><span class="slider-val" id="rainSpeedVal">4</span></div>
+        <div class="slider-row"><span class="slider-label">Opacity</span><input type="range" id="rainOpacitySlider" min="1" max="10" value="5"><span class="slider-val" id="rainOpacityVal">5</span></div>
+        <div class="slider-row"><span class="slider-label">Trail</span><input type="range" id="rainTrailSlider" min="1" max="20" value="8"><span class="slider-val" id="rainTrailVal">8</span></div>
+        <div class="slider-row"><span class="slider-label">Fade</span><input type="range" id="rainFadeSlider" min="1" max="10" value="5"><span class="slider-val" id="rainFadeVal">5</span></div>
+      </div></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn" data-mode="explode">⊹ Explode</button>
+        <button class="fx-expand" data-target="params-explode">▾</button>
+      </div><div class="fx-params" id="params-explode">
+        <div class="slider-row"><span class="slider-label">Force</span><input type="range" id="explodeForceSlider" min="1" max="20" value="8"><span class="slider-val" id="explodeForceVal">8</span></div>
+        <div class="slider-row"><span class="slider-label">Speed</span><input type="range" id="explodeSpeedSlider" min="1" max="10" value="4"><span class="slider-val" id="explodeSpeedVal">4</span></div>
+      </div></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn" data-mode="rgb">RGB Split</button>
+        <button class="fx-expand" data-target="params-rgb">▾</button>
+      </div><div class="fx-params" id="params-rgb">
+        <div class="slider-row"><span class="slider-label">Spread</span><input type="range" id="rgbSpreadSlider" min="1" max="20" value="3"><span class="slider-val" id="rgbSpreadVal">3</span></div>
+        <div class="slider-row"><span class="slider-label">Speed</span><input type="range" id="rgbSpeedSlider" min="1" max="10" value="4"><span class="slider-val" id="rgbSpeedVal">4</span></div>
+      </div></div>
+
+      <div class="fx-block"><div class="fx-header">
+        <button class="mode-btn" data-mode="blow">💨 Blow</button>
+        <button class="fx-expand" data-target="params-blow">▾</button>
+      </div><div class="fx-params" id="params-blow">
+        <div class="slider-row"><span class="slider-label">Force</span><input type="range" id="blowForceSlider" min="1" max="20" value="10"><span class="slider-val" id="blowForceVal">10</span></div>
+        <div class="slider-row"><span class="slider-label">Radius</span><input type="range" id="blowRadiusSlider" min="20" max="300" value="80"><span class="slider-val" id="blowRadiusVal">80</span></div>
+        <div class="slider-row"><span class="slider-label">Chaos</span><input type="range" id="blowChaosSlider" min="0" max="10" value="0"><span class="slider-val" id="blowChaosVal">0</span></div>
+      </div></div>
+
+    </div>
+
+    <!-- Global settings -->
+    <div class="slider-group">
+      <div class="section-title">GLOBAL</div>
+      <div class="slider-row"><span class="slider-label">Size</span><input type="range" id="sizeSlider" min="1" max="8" value="2"><span class="slider-val" id="sizeVal">2</span></div>
+      <div class="slider-row"><span class="slider-label">Density</span><input type="range" id="densitySlider" min="1" max="10" value="5"><span class="slider-val" id="densityVal">5</span></div>
+      <div class="slider-row"><span class="slider-label">Glitch</span><input type="range" id="glitchSlider" min="0" max="10" value="3"><span class="slider-val" id="glitchVal">3</span></div>
+      <div class="slider-row"><span class="slider-label">Resolution</span><input type="range" id="resolutionSlider" min="10" max="100" step="10" value="100"><span class="slider-val" id="resolutionVal">100%</span></div>
+    </div>
+
+    <!-- Tint -->
+    <div class="slider-group">
+      <div class="section-title">TINT <span style="opacity:0.35;font-size:8px">skip white</span></div>
+      <div class="slider-row"><span class="slider-label" style="color:#ff5566">Red</span><input type="range" id="rSlider" min="-255" max="0" value="0"><span class="slider-val" id="rVal">0</span></div>
+      <div class="slider-row"><span class="slider-label" style="color:#44ee88">Green</span><input type="range" id="gSlider" min="-255" max="0" value="0"><span class="slider-val" id="gVal">0</span></div>
+      <div class="slider-row"><span class="slider-label" style="color:#44aaff">Blue</span><input type="range" id="bSlider" min="-255" max="0" value="0"><span class="slider-val" id="bVal">0</span></div>
+    </div>
+
+    <!-- Image FX -->
+    <div>
+      <div class="section-title" style="margin-bottom:6px">IMAGE FX</div>
+      <div class="fx-grid">
+        <button class="btn" id="mirrorBtn">⇔ Mirror</button>
+        <button class="btn" id="pixelSortBtn">▤ Pixel Sort</button>
+      </div>
+    </div>
+
+    <!-- Record row -->
+    <div>
+      <div class="section-title" style="margin-bottom:6px">Recording</div>
+      <div class="dur-row" style="margin-bottom:8px">
+        <span class="dur-label">DURATION</span>
+        <input type="number" class="dur-input" id="durInput" min="1" max="120" value="10" placeholder="10">
+        <span class="dur-label">sec — leave empty for unlimited</span>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn record" id="recBtn">⏺ &nbsp;RECORD VIDEO</button>
+        <button class="btn record" id="gifBtn" style="color:#ffe04b;border-color:rgba(255,224,75,0.5)">⏺ &nbsp;GIF</button>
+      </div>
+      <div class="ctrl-row" style="margin-top:8px">
+        <button class="btn download" id="dlBtn" style="display:none">⬇ &nbsp;DOWNLOAD VIDEO</button>
+        <button class="btn download" id="dlGifBtn" style="display:none;color:#ffe04b;border-color:rgba(255,224,75,0.5)">⬇ &nbsp;DOWNLOAD GIF</button>
+      </div>
+      <div id="convertTip" style="display:none;margin-top:8px">
+        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:1px">
+          Convert to MP4 →
+        </span>
+        <a href="https://cloudconvert.com/webm-to-mp4" target="_blank"
+           style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#00ffb4;letter-spacing:1px;text-decoration:none">
+          cloudconvert.com ↗
+        </a>
+      </div>
+    </div>
+
+    <div class="rec-timer" id="recTimer">● REC &nbsp;<span id="recTime">0:00</span></div>
+  </div>
+
+  </div><!-- /settings-pane -->
+
+</div>
+
+<div id="cinemaHint">DOUBLE TAP TO EXIT</div>
+<div class="rec-badge" id="recBadge">● REC</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

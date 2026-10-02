@@ -199,3 +199,12 @@ body.cinema-mode #cinemaHint { display: block; }
 .dur-input:focus { border-color: #00ffb4; }
 
 .fx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.page-nav { display: flex; gap: 14px; justify-content: center; margin-top: 4px; }
+.page-nav a {
+  font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+  color: rgba(255,255,255,0.4); text-decoration: none; padding-bottom: 2px; border-bottom: 1px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.page-nav a:hover { color: rgba(0,255,180,0.7); }
+.page-nav a.active { color: #00ffb4; border-bottom-color: #00ffb4; }

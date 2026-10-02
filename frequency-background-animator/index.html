@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ioumia frequency background animator</title>
+<link rel="icon" type="image/svg+xml" href="/assets/kiki-favicon.svg">
+</head>
+<body>
+
+<header>
+  <img class="nav-logo" src="/assets/kiki.png" alt="kiki">
+  <div class="header-text">
+    <div class="logo">ioumia<span>~</span>frequency background animator</div>
+    <nav class="page-nav">
+      <a href="/">glitch generator</a>
+      <a href="/frequency-background-animator/" class="active" aria-current="page">frequency background</a>
+    </nav>
+  </div>
+</header>
+
+<div class="main">
+  <div class="render-pane" id="renderPane">
+    <div class="freq-stage" id="freqStage">
+      <canvas id="freqCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="settings-pane" id="settingsPane">
+    <div class="controls" id="controls">
+      <div class="section-title">FREQUENCY BACKGROUND</div>
+      <div class="freq-empty">Controls go here.</div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/src/frequency/main.ts"></script>
+</body>
+</html>

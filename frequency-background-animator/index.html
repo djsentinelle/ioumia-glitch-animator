@@ -22,14 +22,31 @@
 <div class="main">
   <div class="render-pane" id="renderPane">
     <div class="freq-stage" id="freqStage">
-      <canvas id="freqCanvas"></canvas>
+      <div class="freq-hint" id="freqHint">
+        <div class="drop-icon">⬡</div>
+        <div class="drop-text">Drop a background and an audio file</div>
+        <div class="drop-text" style="opacity:0.4; font-size:9px;">PNG · MP3 · WAV · OGG</div>
+      </div>
+      <canvas id="freqCanvas" hidden></canvas>
     </div>
   </div>
 
   <div class="settings-pane" id="settingsPane">
     <div class="controls" id="controls">
-      <div class="section-title">FREQUENCY BACKGROUND</div>
-      <div class="freq-empty">Controls go here.</div>
+      <div class="file-field">
+        <div class="section-title">BACKGROUND <span style="opacity:0.35;font-size:8px">png</span></div>
+        <button type="button" class="file-slot" id="bgSlot">Tap or drop a PNG</button>
+        <input type="file" id="bgInput" accept="image/png,.png" hidden>
+        <div class="file-error" id="bgError" role="alert"></div>
+      </div>
+
+      <div class="file-field">
+        <div class="section-title">AUDIO</div>
+        <button type="button" class="file-slot" id="audioSlot">Tap or drop an audio file</button>
+        <input type="file" id="audioInput" accept="audio/*" hidden>
+        <div class="file-error" id="audioError" role="alert"></div>
+        <audio id="audioPlayer" controls hidden></audio>
+      </div>
     </div>
   </div>
 </div>

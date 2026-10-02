@@ -1,5 +1,5 @@
 import '../style.css'
 import './frequency.css'
-import { initStage } from './stage'
+import { initInputs } from './inputs'
 
-initStage()
+initInputs()

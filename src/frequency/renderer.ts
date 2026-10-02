@@ -10,19 +10,33 @@ const CORE = 0.2
 const MAX_SIGMA = 1.2
 /** Aberration at 10 pushes the red and blue channels apart by this many slots each. */
 const MAX_SHIFT = 0.5
+/** Bloom at 10 adds a halo this opaque at the band centre. */
+const MAX_HALO = 0.55
 /** Noise speckles drawn per frame at full noise and full level, shared between all bands. */
 const NOISE_BUDGET = 6000
 
 const STREAK_COLORS = ['#7ff', '#fe8', '#f9d', '#fff']
 const NOISE_COLORS = ['#f55', '#6f6', '#59f', '#fe5', '#f9d', '#7ff', '#fff']
 
+// Band colours before the hue slider: one edge, the core, the other edge.
+const EDGE_LOW = [255, 140, 205]
+const CORE_COLOR = [255, 235, 250]
+const EDGE_HIGH = [150, 170, 255]
+
 // A band's cross-section is stored as a 1px-thick strip, one per colour channel
 // so chromatic aberration can offset them. The strip spans EXTENT slots.
-const SPRITE_SIZE = 256
-const EXTENT = 8
-type Sprites = { x: HTMLCanvasElement[]; y: HTMLCanvasElement[]; reach: number }
+const SPRITE_SIZE = 512
+const EXTENT = 12
+type Sprites = {
+  x: HTMLCanvasElement[]
+  y: HTMLCanvasElement[]
+  /** Slots from the centre that are not empty, halo included. */
+  reach: number
+  /** Slots from the centre covered by the band itself, without its halo. */
+  body: number
+}
 let sprites: Sprites | null = null
-let spritesBlur = -1
+let spritesKey = ''
 
 let liveLevels = new Float32Array(0)
 let live = true
@@ -36,25 +50,56 @@ function erf(x: number): number {
   return sign * (1 - poly * Math.exp(-ax * ax))
 }
 
-/** Build the band cross-section for a blur amount: a solid core, gaussian-blurred, pink to pale to lilac. */
-function buildSprites(blur: number): Sprites {
+/** Rotate an RGB colour around the colour wheel, keeping its saturation and lightness. */
+function rotateHue([r, g, b]: number[], degrees: number): number[] {
+  if (degrees % 360 === 0) return [r, g, b]
+  const max = Math.max(r, g, b) / 255
+  const min = Math.min(r, g, b) / 255
+  const lightness = (max + min) / 2
+  const delta = max - min
+  if (delta === 0) return [r, g, b]
+  const saturation = delta / (1 - Math.abs(2 * lightness - 1))
+  let hue: number
+  if (max === r / 255) hue = (((g - b) / 255 / delta) % 6 + 6) % 6
+  else if (max === g / 255) hue = (b - r) / 255 / delta + 2
+  else hue = (r - g) / 255 / delta + 4
+  hue = (hue * 60 + degrees) % 360
+
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation
+  const second = chroma * (1 - Math.abs(((hue / 60) % 2) - 1))
+  const base = lightness - chroma / 2
+  const sector = [
+    [chroma, second, 0], [second, chroma, 0], [0, chroma, second],
+    [0, second, chroma], [second, 0, chroma], [chroma, 0, second],
+  ][Math.floor(hue / 60) % 6]
+  return sector.map(v => (v + base) * 255)
+}
+
+/**
+ * Build the band cross-section: a solid core, gaussian-blurred, tinted edge to edge.
+ * Bloom adds a wide halo around it and burns the core towards white.
+ */
+function buildSprites(blur: number, hue: number, bloom: number): Sprites {
   const sigma = (blur / 10) * MAX_SIGMA
-  const alpha = new Float32Array(SPRITE_SIZE)
+  const haloSigma = 0.6 + sigma
+  const haloStrength = (bloom / 10) * MAX_HALO
+
+  const band = new Float32Array(SPRITE_SIZE)
   let peak = 0
   for (let i = 0; i < SPRITE_SIZE; i++) {
     const pos = ((i + 0.5) / SPRITE_SIZE - 0.5) * EXTENT // in slots, 0 at the band centre
-    alpha[i] =
+    band[i] =
       sigma < 0.02
         ? Math.abs(pos) <= CORE ? 1 : 0
         : 0.5 * (erf((pos + CORE) / (sigma * Math.SQRT2)) - erf((pos - CORE) / (sigma * Math.SQRT2)))
-    if (alpha[i] > peak) peak = alpha[i]
+    if (band[i] > peak) peak = band[i]
   }
 
   // The colour ramp follows the visible width so the edges stay tinted at any blur.
   const visible = CORE + 2 * sigma + 0.05
-  const edgeLow = [255, 140, 205]
-  const core = [255, 235, 250]
-  const edgeHigh = [150, 170, 255]
+  const edgeLow = rotateHue(EDGE_LOW, hue)
+  const core = rotateHue(CORE_COLOR, hue)
+  const edgeHigh = rotateHue(EDGE_HIGH, hue)
 
   const make = (alongX: boolean, channel: number): HTMLCanvasElement => {
     const sprite = document.createElement('canvas')
@@ -66,18 +111,22 @@ function buildSprites(blur: number): Sprites {
       const pos = ((i + 0.5) / SPRITE_SIZE - 0.5) * EXTENT
       const t = Math.max(-1, Math.min(1, pos / visible))
       const edge = t < 0 ? edgeLow : edgeHigh
-      const mix = Math.abs(t)
-      image.data[i * 4 + channel] = core[channel] + (edge[channel] - core[channel]) * mix
-      image.data[i * 4 + 3] = (alpha[i] / peak) * 255
+      const solid = band[i] / peak
+      const tint = core[channel] + (edge[channel] - core[channel]) * Math.abs(t)
+      const halo = haloStrength * Math.exp(-(pos * pos) / (2 * haloSigma * haloSigma))
+      image.data[i * 4 + channel] = tint + (255 - tint) * (bloom / 10) * 0.6 * solid
+      image.data[i * 4 + 3] = Math.min(1, solid + halo) * 255
     }
     g.putImageData(image, 0, 0)
     return sprite
   }
 
+  const body = CORE + 3 * sigma + 0.1
   return {
     x: [0, 1, 2].map(c => make(true, c)),
     y: [0, 1, 2].map(c => make(false, c)),
-    reach: Math.min(EXTENT / 2, CORE + 3 * sigma + 0.1), // slots from the centre that are not empty
+    reach: Math.min(EXTENT / 2, bloom > 0 ? Math.max(body, 3 * haloSigma) : body),
+    body,
   }
 }
 
@@ -99,11 +148,12 @@ export function drawFrame(levels: Float32Array): void {
   const background = inputs.background
   if (!background) return
 
-  if (!sprites || spritesBlur !== fx.blur) {
-    sprites = buildSprites(fx.blur)
-    spritesBlur = fx.blur
+  const key = `${fx.blur}|${fx.hue}|${fx.bloom}`
+  if (!sprites || spritesKey !== key) {
+    sprites = buildSprites(fx.blur, fx.hue, fx.bloom)
+    spritesKey = key
   }
-  const { reach } = sprites
+  const { reach, body } = sprites
 
   const W = canvas.width
   const H = canvas.height
@@ -126,6 +176,7 @@ export function drawFrame(levels: Float32Array): void {
   const srcStart = SPRITE_SIZE * (0.5 - reach / EXTENT)
   const srcSize = SPRITE_SIZE * ((2 * reach) / EXTENT)
   const size = 2 * reach * slot
+  const bodySize = 2 * body * slot // streaks and noise hug the band, not its halo
 
   /** Draw a stretch of one band, its three colour channels pushed apart by the aberration. */
   const drawBand = (centre: number, from: number, extent: number): void => {
@@ -168,7 +219,7 @@ export function drawFrame(levels: Float32Array): void {
     const streaks = Math.floor(level * level * glitch * 12 + Math.random())
     for (let s = 0; s < streaks; s++) {
       const along = Math.random() * span
-      const across = centre + (Math.random() - 0.5) * size * 0.9
+      const across = centre + (Math.random() - 0.5) * bodySize * 0.9
       const long = (4 + Math.random() * 26) * unit * (0.5 + glitch)
       const thick = Math.max(1, Math.round(unit * (1 + Math.random())))
       ctx.fillStyle = STREAK_COLORS[(Math.random() * STREAK_COLORS.length) | 0]
@@ -181,7 +232,7 @@ export function drawFrame(levels: Float32Array): void {
   if (fx.noise > 0) {
     ctx.globalCompositeOperation = 'source-over'
     const grain = Math.max(1, Math.round(unit * 1.5))
-    const spread = Math.max(size * 0.35, 6 * unit)
+    const spread = Math.max(bodySize * 0.35, 6 * unit)
     for (let i = 0; i < n; i++) {
       const level = levels[i]
       if (level < 0.1) continue

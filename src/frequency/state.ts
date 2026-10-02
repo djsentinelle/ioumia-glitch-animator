@@ -19,4 +19,9 @@ export const settings: { axis: Axis; invert: boolean; bands: number } = {
   bands: 48,
 }
 
+export type FxKey = 'blur' | 'noise' | 'glitch' | 'aberration'
+
+/** Band effects, each from 0 (off) to 10. */
+export const fx: Record<FxKey, number> = { blur: 4, noise: 3, glitch: 4, aberration: 2 }
+
 export const audioPlayer = document.getElementById('audioPlayer') as HTMLAudioElement

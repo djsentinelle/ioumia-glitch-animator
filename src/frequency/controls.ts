@@ -1,4 +1,4 @@
-import { settings, spectrum, FULL_RANGE, type Axis, type FreqRange } from './state'
+import { settings, spectrum, fx, FULL_RANGE, type Axis, type FreqRange, type FxKey } from './state'
 
 const axisButtons: Record<Axis, HTMLButtonElement> = {
   x: document.getElementById('axisXBtn') as HTMLButtonElement,
@@ -73,6 +73,14 @@ export function initControls(): void {
     settings.bands = Number(bandsSlider.value)
     bandsVal.textContent = bandsSlider.value
   })
+  for (const key of Object.keys(fx) as FxKey[]) {
+    const slider = document.getElementById(`${key}Slider`) as HTMLInputElement
+    const value = document.getElementById(`${key}Val`) as HTMLElement
+    slider.addEventListener('input', () => {
+      fx[key] = Number(slider.value)
+      value.textContent = slider.value
+    })
+  }
   rangeMin.addEventListener('input', () => onRangeInput(rangeMin))
   rangeMax.addEventListener('input', () => onRangeInput(rangeMax))
   autoRangeBtn.addEventListener('click', () => showRange(spectrum.detected))

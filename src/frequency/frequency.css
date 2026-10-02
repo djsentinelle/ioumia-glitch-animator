@@ -25,3 +25,20 @@ body.dragging .freq-hint, body.dragging .file-slot { border-color: #00ffb4; }
 .file-error { font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 1px; color: #ff2d78; }
 .file-error:empty { display: none; }
 .file-field audio { width: 100%; height: 32px; }
+
+.freq-note { font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 1.5px; color: rgba(0,255,180,0.5); text-transform: uppercase; }
+#rangeLabel { color: rgba(0,255,180,0.6); text-transform: none; }
+
+/* Two range inputs stacked on one track: only the thumbs take pointer events. */
+.range-dual { position: relative; height: 14px; --lo: 0; --hi: 1; }
+.range-dual::before, .range-fill { content: ''; position: absolute; top: 6px; height: 2px; border-radius: 1px; }
+.range-dual::before { left: 0; right: 0; background: rgba(0,255,180,0.2); }
+.range-fill {
+  left: calc(6px + (100% - 12px) * var(--lo)); right: calc(6px + (100% - 12px) * (1 - var(--hi)));
+  background: #00ffb4;
+}
+.range-dual input[type="range"] {
+  position: absolute; top: 6px; left: 0; width: 100%; margin: 0; background: none; pointer-events: none;
+}
+.range-dual input[type="range"]::-webkit-slider-thumb { pointer-events: auto; }
+.range-dual input[type="range"]::-moz-range-thumb { pointer-events: auto; }

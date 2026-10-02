@@ -1,5 +1,7 @@
-import { inputs, audioPlayer } from './state'
+import { inputs, audioPlayer, spectrum, FULL_RANGE } from './state'
 import { showBackground } from './stage'
+import { detectRange } from './analysis'
+import { showRange } from './controls'
 
 const AUDIO_EXT = /\.(mp3|wav|ogg|oga|m4a|aac|flac|opus|weba)$/i
 
@@ -56,6 +58,16 @@ function loadAudio(file: File): void {
   setLoaded(audioSlot, file.name, AUDIO_PROMPT)
   audioPlayer.src = URL.createObjectURL(file)
   audioPlayer.hidden = false
+
+  // Until the scan finishes, spread the full audible range over the image.
+  showRange(FULL_RANGE, true)
+  detectRange(file)
+    .catch(() => FULL_RANGE)
+    .then(range => {
+      if (inputs.audioFile !== file) return // replaced or rejected meanwhile
+      spectrum.detected = range
+      showRange(range)
+    })
 }
 
 /** Send each dropped file to the slot matching its type. */
@@ -86,6 +98,8 @@ export function initInputs(): void {
     inputs.audioFile = null
     setLoaded(audioSlot, null, AUDIO_PROMPT)
     audioPlayer.hidden = true
+    spectrum.detected = FULL_RANGE
+    showRange(FULL_RANGE)
   })
 
   // Files can be dropped anywhere on the page.

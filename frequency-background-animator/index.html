@@ -47,6 +47,23 @@
         <div class="file-error" id="audioError" role="alert"></div>
         <audio id="audioPlayer" controls hidden></audio>
       </div>
+
+      <div class="slider-group">
+        <div class="section-title">FREQUENCIES <span id="rangeLabel"></span></div>
+        <div class="range-dual" id="rangeDual">
+          <div class="range-fill"></div>
+          <input type="range" id="rangeMinSlider" min="0" max="1000" value="0" aria-label="Lowest frequency">
+          <input type="range" id="rangeMaxSlider" min="0" max="1000" value="1000" aria-label="Highest frequency">
+        </div>
+        <button type="button" class="btn" id="autoRangeBtn">↺ Auto range</button>
+        <div class="ctrl-row">
+          <button type="button" class="btn" id="axisXBtn">↔ Width</button>
+          <button type="button" class="btn" id="axisYBtn">↕ Height</button>
+        </div>
+        <button type="button" class="btn" id="invertBtn">⇄ Invert</button>
+        <div class="freq-note" id="directionLabel"></div>
+        <div class="slider-row"><span class="slider-label">Bands</span><input type="range" id="bandsSlider" min="8" max="128" value="48"><span class="slider-val" id="bandsVal">48</span></div>
+      </div>
     </div>
   </div>
 </div>

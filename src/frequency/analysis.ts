@@ -9,13 +9,17 @@ const MAX_FRAMES = 300
  */
 const FLOOR_DB = -30
 
+/** Decode a whole audio file to samples at 48 kHz, the usual rate for video sound. */
+export async function decodeAudio(file: File): Promise<AudioBuffer> {
+  const decoder = new OfflineAudioContext(2, 1, 48000)
+  return decoder.decodeAudioData(await file.arrayBuffer())
+}
+
 /**
- * Scan the whole file and return the frequency range it actually uses,
+ * Scan the whole track and return the frequency range it actually uses,
  * so the display can spread that range over the full image.
  */
-export async function detectRange(file: File): Promise<FreqRange> {
-  const decoder = new OfflineAudioContext(1, 1, 44100)
-  const audio = await decoder.decodeAudioData(await file.arrayBuffer())
+export function detectRange(audio: AudioBuffer): FreqRange {
   if (audio.length < FFT_SIZE) return FULL_RANGE
 
   const channels: Float32Array[] = []

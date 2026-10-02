@@ -24,7 +24,8 @@ type Sprites = { x: HTMLCanvasElement[]; y: HTMLCanvasElement[]; reach: number }
 let sprites: Sprites | null = null
 let spritesBlur = -1
 
-let levels = new Float32Array(0)
+let liveLevels = new Float32Array(0)
+let live = true
 
 /** Abramowitz-Stegun approximation, accurate to about 1e-7. */
 function erf(x: number): number {
@@ -80,8 +81,21 @@ function buildSprites(blur: number): Sprites {
   }
 }
 
+/** The preview loop: draws from the audio currently playing. Paused while an export renders. */
 function frame(): void {
   requestAnimationFrame(frame)
+  if (!live || !inputs.background) return
+  if (liveLevels.length !== settings.bands) liveLevels = new Float32Array(settings.bands)
+  readLevels(liveLevels, spectrum.range)
+  drawFrame(liveLevels)
+}
+
+export function setLive(on: boolean): void {
+  live = on
+}
+
+/** Draw the background and one band per level, lowest frequency first. */
+export function drawFrame(levels: Float32Array): void {
   const background = inputs.background
   if (!background) return
 
@@ -98,10 +112,7 @@ function frame(): void {
   ctx.clearRect(0, 0, W, H)
   ctx.drawImage(background, 0, 0)
 
-  const n = settings.bands
-  if (levels.length !== n) levels = new Float32Array(n)
-  readLevels(levels, spectrum.range)
-
+  const n = levels.length
   const onWidth = settings.axis === 'x'
   const length = onWidth ? W : H // along the frequency axis
   const span = onWidth ? H : W // along each band

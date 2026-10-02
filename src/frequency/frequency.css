@@ -2,7 +2,8 @@
   flex: 1; min-height: 0; width: 100%;
   display: flex; align-items: center; justify-content: center;
 }
-#freqCanvas { max-width: 100%; max-height: 100%; display: block; border-radius: 4px; }
+/* Sits above the page-wide scanline overlay (z-index 1000) so the image is shown as it will export. */
+#freqCanvas { max-width: 100%; max-height: 100%; display: block; border-radius: 4px; position: relative; z-index: 1001; }
 #freqCanvas[hidden], .freq-hint[hidden] { display: none; }
 
 .freq-hint {
@@ -42,3 +43,5 @@ body.dragging .freq-hint, body.dragging .file-slot { border-color: #00ffb4; }
 }
 .range-dual input[type="range"]::-webkit-slider-thumb { pointer-events: auto; }
 .range-dual input[type="range"]::-moz-range-thumb { pointer-events: auto; }
+.freq-note:empty { display: none; }
+#exportStatus { text-transform: none; line-height: 1.5; }

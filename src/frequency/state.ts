@@ -5,9 +5,15 @@ export interface FreqRange { min: number; max: number }
 export const FULL_RANGE: FreqRange = { min: 20, max: 20000 }
 
 /** The two files the user supplies. Null until loaded. */
-export const inputs: { background: HTMLImageElement | null; audioFile: File | null } = {
+export const inputs: {
+  background: HTMLImageElement | null
+  audioFile: File | null
+  /** The decoded samples of `audioFile`, once decoding has finished. */
+  audioBuffer: AudioBuffer | null
+} = {
   background: null,
   audioFile: null,
+  audioBuffer: null,
 }
 
 /** `range` is spread across the image. `detected` is what the scan of the audio file found. */

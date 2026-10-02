@@ -1,6 +1,6 @@
 import { inputs, audioPlayer, spectrum, FULL_RANGE } from './state'
 import { showBackground } from './stage'
-import { detectRange } from './analysis'
+import { decodeAudio, detectRange } from './analysis'
 import { showRange } from './controls'
 
 const AUDIO_EXT = /\.(mp3|wav|ogg|oga|m4a|aac|flac|opus|weba)$/i
@@ -60,13 +60,19 @@ function loadAudio(file: File): void {
   audioPlayer.hidden = false
 
   // Until the scan finishes, spread the full audible range over the image.
+  inputs.audioBuffer = null
   showRange(FULL_RANGE, true)
-  detectRange(file)
-    .catch(() => FULL_RANGE)
-    .then(range => {
+  decodeAudio(file)
+    .then(audio => {
       if (inputs.audioFile !== file) return // replaced or rejected meanwhile
-      spectrum.detected = range
-      showRange(range)
+      inputs.audioBuffer = audio
+      spectrum.detected = detectRange(audio)
+      showRange(spectrum.detected)
+    })
+    .catch(() => {
+      if (inputs.audioFile !== file) return
+      spectrum.detected = FULL_RANGE
+      showRange(FULL_RANGE)
     })
 }
 
@@ -96,6 +102,7 @@ export function initInputs(): void {
     if (!inputs.audioFile) return
     audioError.textContent = `${inputs.audioFile.name} could not be decoded by this browser.`
     inputs.audioFile = null
+    inputs.audioBuffer = null
     setLoaded(audioSlot, null, AUDIO_PROMPT)
     audioPlayer.hidden = true
     spectrum.detected = FULL_RANGE

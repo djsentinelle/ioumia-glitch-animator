@@ -12,7 +12,6 @@ export interface MuxerModule {
   ArrayBufferTarget: new () => { buffer: ArrayBuffer }
 }
 
-const BITS_PER_PIXEL = 0.08
 
 // H.264 levels: [level byte, max frame size in macroblocks, max macroblocks per second].
 const AVC_LEVELS = [
@@ -34,17 +33,49 @@ function videoCandidates(width: number, height: number, fps: number): { muxer: s
   ]
 }
 
-/** The first codec this browser can encode at this size. Width and height must be even. */
-export async function pickVideo(width: number, height: number, fps: number) {
-  const bitrate = Math.max(8e6, Math.min(40e6, Math.round(width * height * fps * BITS_PER_PIXEL)))
-  for (const { muxer, label, codecs } of videoCandidates(width, height, fps)) {
+// Chrome's software H.264 encoder silently outputs a near-empty video above about 50 Mbit/s.
+const MAX_SAFE_BITRATE = 48e6
+
+const supports = (config: VideoEncoderConfig): Promise<boolean> =>
+  VideoEncoder.isConfigSupported(config).then(r => r.supported === true, () => false)
+
+export interface PickedVideo {
+  config: VideoEncoderConfig
+  muxer: string
+  label: string
+  /** Set for constant-quality H.264: pass it with every frame (see frameOptions). */
+  quantizer?: number
+}
+
+/**
+ * The first codec this browser can encode at this size. Width and height must be even.
+ * With a quantizer, H.264 is encoded at constant quality, taking whatever bitrate the detail needs;
+ * otherwise, or where that isn't supported, at a bitrate of bitsPerPixel.
+ */
+export async function pickVideo(
+  width: number, height: number, fps: number,
+  { bitsPerPixel = 0.08, quantizer }: { bitsPerPixel?: number; quantizer?: number } = {},
+): Promise<PickedVideo | null> {
+  const candidates = videoCandidates(width, height, fps)
+  if (quantizer !== undefined) {
+    for (const codec of candidates[0].codecs) {
+      const config: VideoEncoderConfig = { codec, width, height, framerate: fps, bitrateMode: 'quantizer' }
+      if (await supports(config)) return { config, muxer: 'avc', label: 'H.264', quantizer }
+    }
+  }
+  const bitrate = Math.max(8e6, Math.min(MAX_SAFE_BITRATE, Math.round(width * height * fps * bitsPerPixel)))
+  for (const { muxer, label, codecs } of candidates) {
     for (const codec of codecs) {
       const config: VideoEncoderConfig = { codec, width, height, bitrate, framerate: fps }
-      const supported = await VideoEncoder.isConfigSupported(config).then(r => r.supported, () => false)
-      if (supported) return { config, muxer, label }
+      if (await supports(config)) return { config, muxer, label }
     }
   }
   return null
+}
+
+/** Options for VideoEncoder.encode, carrying the quantizer of a constant-quality encode. */
+export function frameOptions(video: PickedVideo, keyFrame: boolean): VideoEncoderEncodeOptions {
+  return video.quantizer === undefined ? { keyFrame } : { keyFrame, avc: { quantizer: video.quantizer } }
 }
 
 export async function pickAudio(sampleRate: number, numberOfChannels: number) {

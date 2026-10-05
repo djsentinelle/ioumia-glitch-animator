@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>the factory · ioumia</title>
+<meta name="description" content="the art tools ioumia made, free to use in your browser.">
+<link rel="icon" type="image/png" href="/site/avatar.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=VT323&display=swap" rel="stylesheet">
+</head>
+<body data-page="factory">
+<div class="site">
+<!-- @sidebar -->
+<main class="main">
+<div class="container">
+<!-- @topbar -->
+
+<div class="stack factory">
+  <div class="page-head">
+    <div class="page-head-title">
+      <span class="eyebrow">04 · tools</span>
+      <h1 class="page-title">the factory</h1>
+    </div>
+    <p class="page-desc">the tools i made for my own drawings, opened up so you can make art like me. they all run in your browser.</p>
+  </div>
+
+  <section class="window demo" id="demo">
+    <div class="window-bar">
+      <span><span class="demo-name">static</span> — crt filter</span>
+      <span class="demo-bar-right">
+        <span class="demo-live"><span class="dot"></span>live demo</span>
+        <span class="window-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+      </span>
+    </div>
+    <div class="demo-body">
+      <div class="demo-preview">
+        <img id="demo-base" src="/site/w12.png" alt="preview of the static filter">
+        <img id="demo-glow" class="demo-glow" src="/site/w12.png" alt="">
+        <div id="demo-scan" class="demo-scan"></div>
+        <div class="demo-vignette"></div>
+      </div>
+      <div class="demo-controls">
+        <p>the filter i put on almost everything: soft scanlines, a bloom of glow and a slow drift of color. try it on a few pieces.</p>
+        <div class="demo-source">
+          <span class="control-label">source</span>
+          <div class="thumbs" id="demo-thumbs"></div>
+        </div>
+        <label class="slider">
+          <span class="slider-head"><span>scanlines</span><span id="scan-value">60%</span></span>
+          <input id="demo-scan-input" type="range" min="0" max="1" step="0.01" value="0.6">
+        </label>
+        <label class="slider">
+          <span class="slider-head"><span>glow</span><span id="glow-value">40%</span></span>
+          <input id="demo-glow-input" type="range" min="0" max="1" step="0.01" value="0.4">
+        </label>
+        <label class="slider">
+          <span class="slider-head"><span>color drift</span><span id="hue-value">0°</span></span>
+          <input id="demo-hue-input" class="is-lavender" type="range" min="0" max="360" step="1" value="0">
+        </label>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="demo-save">save this look ↓</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack" style="gap:20px">
+    <div class="section-head">
+      <h2 class="h2">all tools</h2>
+      <div class="chips" id="tool-filters"></div>
+    </div>
+    <div class="tools-grid" id="tools-grid"></div>
+  </section>
+</div>
+
+<!-- @footer -->
+</div>
+</main>
+</div>
+<div class="crt" aria-hidden="true"></div>
+<script type="module" src="/src/site/factory.ts"></script>
+</body>
+</html>

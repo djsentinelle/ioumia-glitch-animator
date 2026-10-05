@@ -768,7 +768,7 @@
       <div class="dur-row" style="margin-bottom:8px">
         <span class="dur-label">DURATION</span>
         <input type="number" class="dur-input" id="durInput" min="1" max="120" value="10" placeholder="10">
-        <span class="dur-label">sec — leave empty for unlimited</span>
+        <span class="dur-label">sec — renders in real-time, then exports</span>
       </div>
       <div class="ctrl-row">
         <button class="btn record" id="recBtn">⏺ &nbsp;RECORD VIDEO</button>
@@ -1063,19 +1063,22 @@ function stopLiveRecording() {
   }
 }
 
-// ── Offline renderer: renders every frame headlessly at perfect 60fps ──────
+// ── Offline renderer: renders every frame at a perfect 60fps timeline, ──────
+// paced by requestAnimationFrame so you watch a real-time preview on screen
+// while each frame is also encoded losslessly into the output video.
 async function startOfflineRecording() {
   const fps = 60;
   const durationSecs = Math.max(1, parseFloat(durInput.value) || 10);
   const totalFrames = Math.round(durationSecs * fps);
   const { x: ox, y: oy, w: cw, h: ch } = cropBounds;
 
+  stopAnim();
+
   recBtn.dataset.rendering = '1';
   recBtn.classList.add('recording');
   recBtn.innerHTML = '⏳ &nbsp;0%';
   recBadge.classList.add('show');
-
-  stopAnim();
+  recTimer.classList.add('show');
 
   try {
     // Prefer H.264/MP4, fall back to VP9/WebM
@@ -1098,9 +1101,11 @@ async function startOfflineRecording() {
     const target = new ArrBufCls();
     const muxer = new MuxerCls({ target, ...muxerOpts });
 
+    // Surface encoder failures so the backpressure loop can't hang forever
+    let encoderError = null;
     const encoder = new VideoEncoder({
       output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-      error: e => console.error('VideoEncoder:', e),
+      error: e => { encoderError = e; console.error('VideoEncoder:', e); },
     });
     encoder.configure({ codec: encoderCodec, width: cw, height: ch, bitrate: 20_000_000, framerate: fps });
 
@@ -1109,28 +1114,56 @@ async function startOfflineRecording() {
     const savedFrame = frame;
     frame = 0; _pixelSortTick = 0;
 
-    for (let f = 0; f < totalFrames; f++) {
-      frame = f + 1;
-      renderSingleFrame();
+    // Render one frame per animation tick. The browser paints between ticks,
+    // so the canvas shows a true real-time preview, while every single frame
+    // is rendered + encoded (no dropped frames in the output).
+    await new Promise((resolve, reject) => {
+      let f = 0;
+      async function step() {
+        try {
+          if (encoderError) throw encoderError;
 
-      recCtx.clearRect(0, 0, cw, ch);
-      recCtx.drawImage(mainCanvas, ox, oy, cw, ch, 0, 0, cw, ch);
-      recCtx.globalCompositeOperation = 'screen';
-      recCtx.drawImage(glitchCanvas, ox, oy, cw, ch, 0, 0, cw, ch);
-      recCtx.globalCompositeOperation = 'source-over';
+          // Backpressure: if encoding falls behind, wait before queuing more
+          // frames so VideoFrames + encoded chunks can't balloon in memory
+          // (this is what crashed long / heavy recordings before).
+          while (encoder.encodeQueueSize > 8 && !encoderError) {
+            await new Promise(r => setTimeout(r, 4));
+          }
+          if (encoderError) throw encoderError;
 
-      const vf = new VideoFrame(recCanvas, {
-        timestamp: Math.round(f * 1_000_000 / fps),
-        duration:  Math.round(1_000_000 / fps),
-      });
-      encoder.encode(vf, { keyFrame: f % (fps * 2) === 0 });
-      vf.close();
+          frame = f + 1;
+          renderSingleFrame();   // draws to the on-screen canvases → live preview
 
-      if (f % 20 === 0) {
-        recBtn.innerHTML = '⏳ &nbsp;' + Math.round(f / totalFrames * 100) + '%';
-        await new Promise(r => setTimeout(r, 0));
+          recCtx.clearRect(0, 0, cw, ch);
+          recCtx.drawImage(mainCanvas, ox, oy, cw, ch, 0, 0, cw, ch);
+          recCtx.globalCompositeOperation = 'screen';
+          recCtx.drawImage(glitchCanvas, ox, oy, cw, ch, 0, 0, cw, ch);
+          recCtx.globalCompositeOperation = 'source-over';
+
+          const vf = new VideoFrame(recCanvas, {
+            timestamp: Math.round(f * 1_000_000 / fps),
+            duration:  Math.round(1_000_000 / fps),
+          });
+          encoder.encode(vf, { keyFrame: f % (fps * 2) === 0 });
+          vf.close();
+
+          f++;
+          if (f % 6 === 0 || f === totalFrames) {
+            recBtn.innerHTML = '⏳ &nbsp;' + Math.round(f / totalFrames * 100) + '%';
+            recTimeEl.textContent = (f / fps).toFixed(1) + 's';
+          }
+
+          if (f < totalFrames) {
+            requestAnimationFrame(step);
+          } else {
+            resolve();
+          }
+        } catch (e) {
+          reject(e);
+        }
       }
-    }
+      requestAnimationFrame(step);
+    });
 
     await encoder.flush();
     muxer.finalize();
@@ -1148,8 +1181,11 @@ async function startOfflineRecording() {
 
   } catch (err) {
     console.warn('Offline render failed:', err);
+    alert('Recording failed: ' + (err && err.message ? err.message : err) +
+          '\n\nTry a shorter duration or fewer effects.');
   }
 
+  recTimer.classList.remove('show');
   recBtn.innerHTML = '⏺ &nbsp;RECORD VIDEO';
   recBtn.classList.remove('recording');
   recBadge.classList.remove('show');

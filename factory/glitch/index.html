@@ -1,24 +1,26 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ioumia glitch generator</title>
-<link rel="icon" type="image/svg+xml" href="/assets/kiki-favicon.svg">
+<title>glitch animator · ioumia</title>
+<link rel="icon" type="image/png" href="/site/avatar.png">
 </head>
 <body>
 
 <header>
-  <img class="nav-logo" src="/assets/kiki.png" alt="kiki">
-  <div class="header-text">
-    <div class="logo">⸜(｡˃ ᵕ ˂ )⸝♡ ioumia<span>~</span>glitch generator ♡(˃ᵕ˂⸜)</div>
-    <div class="logo-jp">(っ˘ω˘ς ) グリッチ・ジェネレーター (ˊ˘ˋ)♡</div>
-    <nav class="page-nav">
-      <a href="/factory/">← factory</a>
-      <a href="/factory/glitch/" class="active" aria-current="page">glitch generator</a>
-      <a href="/factory/frequency/">frequency background</a>
-    </nav>
-  </div>
+  <a class="tool-brand" href="/factory/">
+    <span class="nav-logo"><img src="/site/avatar.png" alt="ioumia"></span>
+    <span class="tool-name">
+      <span class="tool-crumbs">ioumia ˚₊· the factory</span>
+      <span class="tool-title">glitch animator</span>
+    </span>
+  </a>
+  <nav class="page-nav" aria-label="tools">
+    <a href="/factory/">← all tools</a>
+    <a href="/factory/glitch/" class="active" aria-current="page">glitch animator</a>
+    <a href="/factory/frequency/">frequency animator</a>
+  </nav>
 </header>
 
 <div class="main">
@@ -33,7 +35,7 @@
       <div class="drop-zone" id="dropZone">
         <div class="drop-icon">⬡</div>
         <div class="drop-text">Tap to load your drawing</div>
-        <div class="drop-text" style="opacity:0.4; font-size:9px;">PNG · JPG · WEBP</div>
+        <div class="drop-text is-hint">PNG · JPG · WEBP</div>
       </div>
       <div class="canvas-wrapper" id="canvasWrapper">
         <canvas id="mainCanvas"></canvas>
@@ -49,11 +51,11 @@
       <button class="btn" id="playBtn">▶ &nbsp;PLAY</button>
       <button class="btn danger" id="resetBtn">↺ &nbsp;RESET</button>
     </div>
-    <button class="btn" id="clearFxBtn" style="border-color:rgba(255,100,50,0.4);color:rgba(255,130,80,0.8)">✕ &nbsp;CLEAR ALL EFFECTS</button>
+    <button class="btn quiet" id="clearFxBtn">✕ &nbsp;CLEAR ALL EFFECTS</button>
     <button class="cinema-btn" id="cinemaBtn">⛶ &nbsp;SCREEN RECORD MODE</button>
 
     <div>
-      <div class="section-title" style="margin-bottom:8px">EFFECTS <span style="opacity:0.35;font-size:8px">tap=toggle · ▾=params</span></div>
+      <div class="section-title" style="margin-bottom:8px">EFFECTS <span class="section-hint">tap=toggle · ▾=params</span></div>
 
       <div class="fx-block"><div class="fx-header">
         <button class="mode-btn active" data-mode="sparkle">✦ Sparkle</button>
@@ -124,10 +126,10 @@
     </div>
 
     <div class="slider-group">
-      <div class="section-title">TINT <span style="opacity:0.35;font-size:8px">skip white</span></div>
-      <div class="slider-row"><span class="slider-label" style="color:#ff5566">Red</span><input type="range" id="rSlider" min="-255" max="0" value="0"><span class="slider-val" id="rVal">0</span></div>
-      <div class="slider-row"><span class="slider-label" style="color:#44ee88">Green</span><input type="range" id="gSlider" min="-255" max="0" value="0"><span class="slider-val" id="gVal">0</span></div>
-      <div class="slider-row"><span class="slider-label" style="color:#44aaff">Blue</span><input type="range" id="bSlider" min="-255" max="0" value="0"><span class="slider-val" id="bVal">0</span></div>
+      <div class="section-title">TINT <span class="section-hint">skip white</span></div>
+      <div class="slider-row"><span class="slider-label tint-r">Red</span><input type="range" id="rSlider" min="-255" max="0" value="0"><span class="slider-val" id="rVal">0</span></div>
+      <div class="slider-row"><span class="slider-label tint-g">Green</span><input type="range" id="gSlider" min="-255" max="0" value="0"><span class="slider-val" id="gVal">0</span></div>
+      <div class="slider-row"><span class="slider-label tint-b">Blue</span><input type="range" id="bSlider" min="-255" max="0" value="0"><span class="slider-val" id="bVal">0</span></div>
     </div>
 
     <div>
@@ -147,15 +149,14 @@
       </div>
       <div class="ctrl-row">
         <button class="btn record" id="recBtn">⏺ &nbsp;RECORD VIDEO</button>
-        <button class="btn record" id="gifBtn" style="color:#ffe04b;border-color:rgba(255,224,75,0.5)">⏺ &nbsp;GIF</button>
+        <button class="btn record" id="gifBtn">⏺ &nbsp;GIF</button>
       </div>
       <div class="ctrl-row" style="margin-top:8px">
         <button class="btn download" id="dlBtn" style="display:none">⬇ &nbsp;DOWNLOAD VIDEO</button>
-        <button class="btn download" id="dlGifBtn" style="display:none;color:#ffe04b;border-color:rgba(255,224,75,0.5)">⬇ &nbsp;DOWNLOAD GIF</button>
+        <button class="btn download" id="dlGifBtn" style="display:none">⬇ &nbsp;DOWNLOAD GIF</button>
       </div>
-      <div id="convertTip" style="display:none;margin-top:8px">
-        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:1px">Convert to MP4 → </span>
-        <a href="https://cloudconvert.com/webm-to-mp4" target="_blank" style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#00ffb4;letter-spacing:1px;text-decoration:none">cloudconvert.com ↗</a>
+      <div id="convertTip" class="convert-tip" style="display:none;margin-top:8px">
+        convert to mp4 → <a href="https://cloudconvert.com/webm-to-mp4" target="_blank" rel="noopener">cloudconvert.com ↗</a>
       </div>
     </div>
 

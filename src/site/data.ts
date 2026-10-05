@@ -37,7 +37,7 @@ export interface Tool {
 export const TOOLS: Tool[] = [
   {
     id: 'glitch', name: 'glitch animator', type: 'web tool', status: 'live',
-    thumb: '/site/w10.png', pos: 'center 35%', href: '/factory/glitch/',
+    thumb: '/site/tool-glitch.jpg', pos: '24% 46%', href: '/factory/glitch/',
     short: 'your drawing breaks into pixels that drift, rain and spark.',
     desc: 'load a drawing and every pixel comes alive: sparkle, drift, pulse, rain, explode, rgb split. record it as a video or a gif.',
   },

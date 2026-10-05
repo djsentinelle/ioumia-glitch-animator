@@ -35,18 +35,42 @@
       <div class="drop-zone" id="dropZone">
         <img class="drop-icon" src="/assets/kiki-drop.png" alt="" width="268" height="360">
         <div class="drop-text">Tap to load your drawing</div>
-        <div class="drop-text is-hint">PNG · JPG · WEBP</div>
+        <div class="drop-text is-hint">PNG · JPG · WEBP · GIF · animated PNG / WEBP</div>
       </div>
+      <div class="drafts" id="drafts" hidden></div>
       <div class="canvas-wrapper" id="canvasWrapper">
+        <canvas id="bgCanvas"></canvas>
         <canvas id="mainCanvas"></canvas>
         <canvas id="glitchCanvas"></canvas>
       </div>
+    </div>
+    <div class="timeline" id="timeline" hidden>
+      <div class="timeline-head">
+        <button type="button" class="timeline-play" id="tlPlay" aria-label="play">▶</button>
+        <span class="timeline-time"><span id="tlTime">0:00.0</span> / <span id="tlTotal">0:10.0</span></span>
+        <span class="timeline-note" id="tlNoSound">no sound</span>
+      </div>
+      <div class="timeline-track" id="tlTrack" tabindex="0" role="slider" aria-label="timeline">
+        <canvas id="tlWave"></canvas>
+        <div class="timeline-playhead" id="tlHead"></div>
+      </div>
+      <div class="timeline-ticks" id="tlTicks"></div>
     </div>
     <input type="file" id="fileInput" accept="image/*">
   </div>
 
   <div class="settings-pane" id="settingsPane">
   <div class="controls" id="controls" style="display:none">
+    <div class="draft-bar">
+      <span class="note" id="draftStatus" role="status"></span>
+      <button type="button" class="btn quiet" id="draftSave">save draft</button>
+    </div>
+    <div class="file-field">
+      <div class="section-title">drawing <span class="section-hint">tap or drop to replace it</span></div>
+      <button type="button" class="file-slot loaded" id="drawingSlot"></button>
+      <input type="file" id="drawingInput" accept="image/*" hidden>
+      <div class="note" id="drawingError" role="alert"></div>
+    </div>
     <div class="ctrl-row">
       <button class="btn" id="playBtn">▶ &nbsp;PLAY</button>
       <button class="btn danger" id="resetBtn">↺ &nbsp;RESET</button>
@@ -140,12 +164,43 @@
       </div>
     </div>
 
+    <div class="slider-group">
+      <div class="section-title">backgrounds <span class="section-hint">photo or video, behind the drawing</span></div>
+      <div class="bg-blend">
+        <span class="slider-label">drawing</span>
+        <div class="ctrl-row">
+          <button type="button" class="btn" data-blend="source-over">normal</button>
+          <button type="button" class="btn" data-blend="screen">screen</button>
+        </div>
+      </div>
+      <div class="note">screen lets a black drawing background show the backgrounds through.</div>
+      <div id="bgLayers"></div>
+    </div>
+
+    <div class="slider-group">
+      <div class="section-title">sound <span class="section-hint">plays with the animation, saved in the video</span></div>
+      <button type="button" class="file-slot" id="soundSlot">tap or drop an audio file</button>
+      <input type="file" id="soundInput" accept="audio/*" hidden>
+      <div class="note" id="soundError" role="alert"></div>
+      <div class="sound-controls" id="soundControls" hidden>
+        <div class="slider-row"><span class="slider-label">trim</span><span class="note" id="trimLabel"></span></div>
+        <div class="range-dual" id="trimDual">
+          <div class="range-fill"></div>
+          <input type="range" id="trimStart" min="0" max="1000" value="0" aria-label="sound start">
+          <input type="range" id="trimEnd" min="0" max="1000" value="1000" aria-label="sound end">
+        </div>
+        <div class="slider-row"><span class="slider-label">fade in</span><input type="range" id="fadeIn" min="0" max="10" step="0.1" value="0"><span class="slider-val" id="fadeInVal">0.0s</span></div>
+        <div class="slider-row"><span class="slider-label">fade out</span><input type="range" id="fadeOut" min="0" max="10" step="0.1" value="0"><span class="slider-val" id="fadeOutVal">0.0s</span></div>
+        <button type="button" class="btn quiet" id="soundRemove">remove sound</button>
+      </div>
+    </div>
+
     <div>
       <div class="section-title" style="margin-bottom:6px">Recording</div>
       <div class="dur-row" style="margin-bottom:8px">
         <span class="dur-label">DURATION</span>
-        <input type="number" class="dur-input" id="durInput" min="1" max="120" value="10" placeholder="10">
-        <span class="dur-label">sec — leave empty for unlimited</span>
+        <input type="number" class="dur-input" id="durInput" min="1" max="600" step="0.1" value="10" placeholder="10">
+        <span class="dur-label">sec · the timeline's length</span>
       </div>
       <div class="ctrl-row">
         <button class="btn record" id="recBtn">⏺ &nbsp;RECORD VIDEO</button>

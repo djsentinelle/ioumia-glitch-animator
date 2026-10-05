@@ -1,4 +1,5 @@
 import type { Particle, Settings, Tint, Cursor, FxSettings } from './types'
+import type { GifAnim } from './core/gif'
 
 export const importCdn: (url: string) => Promise<Record<string, unknown>> =
   new Function('url', 'return import(url)') as (url: string) => Promise<Record<string, unknown>>
@@ -62,6 +63,11 @@ export const recCtx    = recCanvas.getContext('2d')!
 // ── Reassignable state bag ───────────────────────────────────────
 export const state = {
   img:              null as HTMLImageElement | null,
+  /** The drawing's file, kept for drafts. */
+  imgFile:          null as File | null,
+  /** Set when the drawing is an animated GIF; img then holds its first frame. */
+  gif:              null as GifAnim | null,
+  gifIndex:         -1,
   animId:           0,
   isPlaying:        false,
   particles:        [] as Particle[],

@@ -7,6 +7,8 @@ import {
 import { startAnim, stopAnim } from '../core/renderer'
 import { buildParticles } from '../core/particles'
 import { setZoom } from './zoom'
+import { closeGif } from '../core/gif'
+import { showTimeline } from './timeline'
 
 export function initControls(): void {
   playBtn.addEventListener('click', () => { if (state.isPlaying) stopAnim(); else startAnim() })
@@ -17,8 +19,12 @@ export function initControls(): void {
     wrapper.classList.remove('visible')
     controls.style.display = 'none'
     zoomBar.classList.remove('visible')
+    showTimeline(false)
+    state.frame = 0
     setZoom(1)
     state.img = null
+    closeGif(state.gif)
+    state.gif = null
     state.particles = []
     fileInput.value = ''
   })

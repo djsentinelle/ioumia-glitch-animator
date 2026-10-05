@@ -19,9 +19,12 @@ const STREAK_COLORS = ['#7ff', '#fe8', '#f9d', '#fff']
 const NOISE_COLORS = ['#f55', '#6f6', '#59f', '#fe5', '#f9d', '#7ff', '#fff']
 
 // Band colours before the hue slider: one edge, the core, the other edge.
-const EDGE_LOW = [255, 140, 205]
-const CORE_COLOR = [255, 235, 250]
-const EDGE_HIGH = [150, 170, 255]
+// Kept saturated: a near-white band has no hue left to rotate.
+const EDGE_LOW = [255, 90, 180]
+const CORE_COLOR = [255, 200, 235]
+const EDGE_HIGH = [110, 120, 255]
+/** Below 1, the edge colours take over closer to the band centre. */
+const TINT_CURVE = 0.6
 
 // A band's cross-section is stored as a 1px-thick strip, one per colour channel
 // so chromatic aberration can offset them. The strip spans EXTENT slots.
@@ -95,8 +98,8 @@ function buildSprites(blur: number, hue: number, bloom: number): Sprites {
     if (band[i] > peak) peak = band[i]
   }
 
-  // The colour ramp follows the visible width so the edges stay tinted at any blur.
-  const visible = CORE + 2 * sigma + 0.05
+  // The colour ramp follows the band width, reaching the edge colours where the band is still bright.
+  const visible = CORE + sigma + 0.05
   const edgeLow = rotateHue(EDGE_LOW, hue)
   const core = rotateHue(CORE_COLOR, hue)
   const edgeHigh = rotateHue(EDGE_HIGH, hue)
@@ -112,7 +115,7 @@ function buildSprites(blur: number, hue: number, bloom: number): Sprites {
       const t = Math.max(-1, Math.min(1, pos / visible))
       const edge = t < 0 ? edgeLow : edgeHigh
       const solid = band[i] / peak
-      const tint = core[channel] + (edge[channel] - core[channel]) * Math.abs(t)
+      const tint = core[channel] + (edge[channel] - core[channel]) * Math.abs(t) ** TINT_CURVE
       const halo = haloStrength * Math.exp(-(pos * pos) / (2 * haloSigma * haloSigma))
       image.data[i * 4 + channel] = tint + (255 - tint) * (bloom / 10) * 0.6 * solid
       image.data[i * 4 + 3] = Math.min(1, solid + halo) * 255

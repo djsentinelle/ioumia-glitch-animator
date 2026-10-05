@@ -1,5 +1,5 @@
 import { defineConfig, type Plugin } from 'vite'
-import { sidebar, topbar, footer, type SitePage } from './src/site/partials'
+import { sidebar, topbar, footer, type SitePage } from './src/site/partials.ts'
 
 // Fills the <!-- @sidebar -->, <!-- @topbar --> and <!-- @footer --> markers
 // in site pages. The page comes from <body data-page="…">.
@@ -22,7 +22,7 @@ export default defineConfig({
   server: { port: 3000 },
   build: {
     target: 'es2022',
-    rollupOptions: {
+    rolldownOptions: {
       input: {
         home: 'index.html',
         works: 'works/index.html',

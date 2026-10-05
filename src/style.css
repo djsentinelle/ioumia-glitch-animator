@@ -42,16 +42,6 @@ body {
   align-items: center;
 }
 
-/* CRT lines, as on the website */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, .16) 0 1px, transparent 1px 3px);
-  pointer-events: none;
-  z-index: 70;
-}
-
 a { color: var(--teal); text-decoration: none; }
 a:hover { color: var(--lavender); }
 
@@ -153,9 +143,11 @@ header {
 .drop-text { font-family: var(--pixel); font-size: 22px; line-height: 1; color: var(--ink); text-transform: lowercase; text-align: center; }
 .drop-text.is-hint { font-size: 17px; color: var(--muted); }
 
-.canvas-wrapper { position: relative; display: none; border-radius: 3px; overflow: hidden; max-width: 100%; }
+.canvas-wrapper { position: relative; display: none; border-radius: 3px; overflow: hidden; max-width: 100%; isolation: isolate; }
 .canvas-wrapper.visible { display: block; }
-#mainCanvas { width: 100%; height: auto; display: block; }
+/* Painted in DOM order: backgrounds, drawing, particles. */
+#bgCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#mainCanvas { position: relative; width: 100%; height: auto; display: block; }
 #glitchCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; mix-blend-mode: screen; }
 
 /* ── controls ───────────────────────────────────────────── */
@@ -247,6 +239,110 @@ input[type="range"]:focus-visible { outline: 1px solid var(--lavender); outline-
 .dur-input:focus { border-color: var(--lavender); }
 
 .convert-tip { font-size: 12px; color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); }
+
+.file-slot {
+  width: 100%; padding: 12px 10px; cursor: pointer;
+  background: var(--window); border: 1px dashed var(--line-strong); border-radius: 3px; color: var(--body);
+  font-family: var(--pixel); font-size: 19px; line-height: 1; text-transform: lowercase;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: border-color .15s, color .15s;
+}
+.file-slot:hover, .file-slot:focus-visible { border-color: var(--lavender); color: var(--lavender); outline: none; }
+.file-slot.loaded { border-style: solid; border-color: var(--teal); color: var(--ink); text-transform: none; font-family: var(--mono); font-size: 12px; }
+.file-slot.is-dragging { border-color: var(--lavender); color: var(--lavender); }
+
+/* Two range inputs stacked on one track: only the thumbs take pointer events. */
+.range-dual { position: relative; height: 14px; --lo: 0; --hi: 1; }
+.range-dual::before, .range-fill { content: ''; position: absolute; top: 6px; height: 2px; border-radius: 1px; }
+.range-dual::before { left: 0; right: 0; background: var(--line-strong); }
+.range-fill {
+  left: calc(6px + (100% - 12px) * var(--lo)); right: calc(6px + (100% - 12px) * (1 - var(--hi)));
+  background: var(--teal);
+}
+.range-dual input[type="range"] {
+  position: absolute; top: 6px; left: 0; width: 100%; margin: 0; background: none; pointer-events: none;
+}
+.range-dual input[type="range"]::-webkit-slider-thumb { pointer-events: auto; }
+.range-dual input[type="range"]::-moz-range-thumb { pointer-events: auto; }
+
+/* ── drafts ─────────────────────────────────────────────── */
+
+.draft-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.draft-bar .btn { flex: none; }
+
+.drafts { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 18px; }
+.drafts[hidden] { display: none; }
+.draft { display: flex; align-items: stretch; gap: 6px; }
+.draft-open {
+  flex: 1; min-width: 0; display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: auto auto;
+  column-gap: 12px; align-items: center; padding: 6px; text-align: left; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 3px; background: rgba(228, 236, 232, .025); color: var(--ink);
+  transition: border-color .15s, background .15s;
+}
+.draft-open:hover { border-color: var(--lavender); background: rgba(195, 179, 236, .06); }
+.draft-open img { grid-row: 1 / 3; width: 56px; height: 56px; object-fit: cover; background: #000; }
+.draft-name { font-family: var(--pixel); font-size: 20px; line-height: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draft-date { font-size: 11px; color: var(--muted); }
+.draft-delete {
+  padding: 0 10px; cursor: pointer; border: 1px solid var(--line); border-radius: 3px; background: none;
+  font-family: var(--pixel); font-size: 18px; color: var(--muted);
+}
+.draft-delete:hover { border-color: var(--lavender); color: var(--lavender); }
+
+/* ── sound and timeline ─────────────────────────────────── */
+
+.sound-controls { display: flex; flex-direction: column; gap: 10px; }
+.sound-controls .btn { flex: none; }
+
+.timeline { width: 100%; max-width: 800px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+.timeline[hidden] { display: none; }
+.timeline-head { display: flex; align-items: center; gap: 12px; font-family: var(--pixel); font-size: 20px; line-height: 1; color: var(--muted); }
+.timeline-play {
+  width: 30px; height: 26px; padding: 0;
+  border: 1px solid var(--line-strong); border-radius: 3px; background: transparent; color: var(--ink);
+  font-size: 12px; cursor: pointer; transition: border-color .15s, color .15s;
+}
+.timeline-play:hover { border-color: var(--lavender); color: var(--lavender); }
+.timeline-time { color: var(--ink); }
+.timeline-note { margin-left: auto; font-size: 17px; color: var(--faint); }
+.timeline-track {
+  position: relative; height: 52px; cursor: pointer; touch-action: none;
+  border: 1px solid var(--line); border-radius: 3px; background: var(--window); overflow: hidden;
+}
+.timeline-track:focus-visible { outline: 1px solid var(--lavender); outline-offset: 2px; }
+#tlWave { display: block; width: 100%; height: 100%; opacity: .7; }
+.timeline-playhead {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 2px; margin-left: -1px;
+  background: var(--lavender); pointer-events: none;
+}
+.timeline-playhead::before {
+  content: ''; position: absolute; top: 0; left: -4px;
+  border: 5px solid transparent; border-top-color: var(--lavender);
+}
+.timeline-ticks { position: relative; height: 16px; font-family: var(--pixel); font-size: 15px; line-height: 1; color: var(--faint); }
+.timeline-ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.timeline-ticks span:first-child { transform: none; }
+.timeline-ticks span.is-end { transform: translateX(-100%); }
+
+/* ── backgrounds ────────────────────────────────────────── */
+
+.bg-blend { display: flex; flex-direction: column; gap: 6px; }
+.bg-layer {
+  display: flex; flex-direction: column; gap: 10px; margin-top: 4px; padding: 10px;
+  border: 1px solid var(--line); border-radius: 3px;
+}
+.bg-layer-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.bg-layer-title { font-family: var(--pixel); font-size: 19px; line-height: 1; color: var(--ink); }
+.bg-remove {
+  padding: 0; background: none; border: 0; cursor: pointer;
+  font-family: var(--pixel); font-size: 18px; line-height: 1; color: var(--muted);
+}
+.bg-remove:hover { color: var(--lavender); }
+.bg-layer .fx-block { margin-bottom: 0; }
+.bg-sound { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.bg-sound[hidden] { display: none; }
+.bg-grade-title { flex: 1; padding: 8px 10px; font-family: var(--pixel); font-size: 20px; line-height: 1; color: var(--body); }
+.fx-params .btn { flex: none; margin-top: 4px; }
 
 #fileInput { display: none; }
 
@@ -266,11 +362,11 @@ input[type="range"]:focus-visible { outline: 1px solid var(--lavender); outline-
 
 /* ── cinema mode ────────────────────────────────────────── */
 
-body.cinema-mode header, body.cinema-mode .settings-pane, body.cinema-mode .zoom-bar, body.cinema-mode .drop-zone { display: none !important; }
+body.cinema-mode header, body.cinema-mode .settings-pane, body.cinema-mode .timeline, body.cinema-mode .zoom-bar, body.cinema-mode .drop-zone { display: none !important; }
 body.cinema-mode { background: #000; }
 body.cinema-mode .main { padding: 0; height: 100vh; justify-content: center; align-items: center; }
 body.cinema-mode .canvas-wrapper { width: 100vw !important; height: 100vh !important; border-radius: 0; }
-body.cinema-mode #mainCanvas, body.cinema-mode #glitchCanvas { width: 100% !important; height: 100% !important; object-fit: contain; }
+body.cinema-mode #bgCanvas, body.cinema-mode #mainCanvas, body.cinema-mode #glitchCanvas { width: 100% !important; height: 100% !important; object-fit: contain; }
 
 #cinemaHint {
   display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 80;

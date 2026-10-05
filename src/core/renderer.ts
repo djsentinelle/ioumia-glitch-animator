@@ -5,15 +5,35 @@ import {
 } from '../state'
 import { applyMode } from '../effects'
 import { buildParticles } from './particles'
+import { renderBackgrounds, playVideos, pauseVideos } from './backgrounds'
+import { baseSource, syncGifFrame } from './base'
+import { clockTime, startClock, stopClock } from './clock'
+import { timelineDuration } from './sound'
+
+/** How far, in pixels, a blown particle must travel to show fully. */
+const BLOW_VISIBLE_AT = 3
+
+let frameListener: () => void = () => {}
+
+/** Called after every live frame and on play/stop, to move the timeline's playhead. */
+export function onFrame(listener: () => void): void {
+  frameListener = listener
+}
 
 export function renderSingleFrame(): void {
   const w = mainCanvas.width, h = mainCanvas.height
   const spd = settings.speed / 4
   const glitchAmt = settings.glitch
 
+  // An animated drawing rebuilds its particles on each new frame, keeping their motion.
+  if (syncGifFrame()) buildParticles(true)
+  const base = baseSource()
+
+  renderBackgrounds()
+
   mCtx.clearRect(0, 0, w, h)
   mCtx.globalAlpha = 1
-  mCtx.drawImage(state.img!, 0, 0, w, h)
+  mCtx.drawImage(base, 0, 0, w, h)
 
   if (tint.r !== 0 || tint.g !== 0 || tint.b !== 0) {
     const cr = Math.round(255 + tint.r)
@@ -79,12 +99,12 @@ export function renderSingleFrame(): void {
       const sy = Math.random() * h
       const sh = 2 + Math.random() * (glitchAmt * 3)
       const offset = (Math.random() - 0.5) * glitchAmt * 8
-      mCtx.drawImage(state.img!, 0, sy, w, sh, offset, sy, w, sh)
+      mCtx.drawImage(base, 0, sy, w, sh, offset, sy, w, sh)
       if (Math.random() < 0.4) {
         mCtx.globalAlpha = 0.3
         mCtx.globalCompositeOperation = 'screen'
-        mCtx.drawImage(state.img!, 0, sy, w, sh, offset + 3, sy, w, sh)
-        mCtx.drawImage(state.img!, 0, sy, w, sh, offset - 3, sy, w, sh)
+        mCtx.drawImage(base, 0, sy, w, sh, offset + 3, sy, w, sh)
+        mCtx.drawImage(base, 0, sy, w, sh, offset - 3, sy, w, sh)
         mCtx.globalCompositeOperation = 'source-over'
         mCtx.globalAlpha = 1
       }
@@ -108,7 +128,9 @@ export function renderSingleFrame(): void {
       const t = state.frame * spd * p.speed + p.phase
       const { x, y, life, isRgb } = applyMode(m, p, t)
 
-      const alpha = Math.min(1, life * (p.a / 255) * (modeList.length > 1 ? 0.75 : 1))
+      let alpha = Math.min(1, life * (p.a / 255) * (modeList.length > 1 ? 0.75 : 1))
+      // Blow only shows particles it has pushed away; at rest they would just speckle the drawing.
+      if (m === 'blow') alpha *= Math.min(1, Math.hypot(x - p.ox, y - p.oy) / BLOW_VISIBLE_AT)
       if (alpha < 0.05) continue
 
       if (isRgb) {
@@ -171,8 +193,9 @@ export function renderSingleFrame(): void {
 
 function loop(): void {
   state.animId = requestAnimationFrame(loop)
-  state.frame++
+  state.frame = Math.round(clockTime() * 60)
   renderSingleFrame()
+  frameListener()
 }
 
 export function startAnim(): void {
@@ -181,6 +204,8 @@ export function startAnim(): void {
   playBtn.classList.add('active')
   recBadge.classList.add('show')
   buildParticles()
+  playVideos()
+  startClock((state.frame / 60) % timelineDuration())
   loop()
 }
 
@@ -190,9 +215,13 @@ export function stopAnim(): void {
   playBtn.textContent = '▶  PLAY'
   playBtn.classList.remove('active')
   recBadge.classList.remove('show')
+  stopClock()
+  pauseVideos()
+  renderBackgrounds()
   if (state.img) {
     mCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height)
-    mCtx.drawImage(state.img, 0, 0, mainCanvas.width, mainCanvas.height)
+    mCtx.drawImage(baseSource(), 0, 0, mainCanvas.width, mainCanvas.height)
     gCtx.clearRect(0, 0, glitchCanvas.width, glitchCanvas.height)
   }
+  frameListener()
 }

@@ -1,14 +1,16 @@
 import {
   state, recState,
-  mainCanvas, glitchCanvas,
+  mainCanvas,
   gifBtn, dlGifBtn, recTimer, durInput,
 } from '../state'
 import { startAnim } from '../core/renderer'
+import { hasBackground } from '../core/backgrounds'
+import { compositeFrame } from './composite'
 
 export function startGif(): void {
   if (!state.img) return
   if (!state.isPlaying) startAnim()
-  if (!recState.cropBounds) {
+  if (!recState.cropBounds || hasBackground()) {
     recState.cropBounds = { x: 0, y: 0, w: mainCanvas.width, h: mainCanvas.height }
   }
   recState.gifRecording = true
@@ -22,10 +24,7 @@ export function startGif(): void {
     const cb = recState.cropBounds ?? { x: 0, y: 0, w: mainCanvas.width, h: mainCanvas.height }
     const gc = document.createElement('canvas')
     gc.width = cb.w; gc.height = cb.h
-    const gx = gc.getContext('2d')!
-    gx.drawImage(mainCanvas, cb.x, cb.y, cb.w, cb.h, 0, 0, cb.w, cb.h)
-    gx.globalCompositeOperation = 'screen'
-    gx.drawImage(glitchCanvas, cb.x, cb.y, cb.w, cb.h, 0, 0, cb.w, cb.h)
+    compositeFrame(gc.getContext('2d')!, cb)
     recState.gifFrames.push(gc.toDataURL('image/png'))
   }, 33)
 

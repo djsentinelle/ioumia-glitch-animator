@@ -1,17 +1,21 @@
 import {
-  state, recState, importCdn,
-  mainCanvas, glitchCanvas, recCanvas, recCtx,
-  recBtn, recBadge, dlBtn, convertTipEl, durInput,
+  state, recState, importCdn, recCanvas, recCtx,
+  recBtn, recBadge, dlBtn, convertTipEl,
 } from '../state'
-import { renderSingleFrame } from '../core/renderer'
+import { renderSingleFrame, startAnim, stopAnim } from '../core/renderer'
 import { buildParticles } from '../core/particles'
-import { startAnim, stopAnim } from '../core/renderer'
+import { hasVideo, seekVideos } from '../core/backgrounds'
+import { processedSound, timelineDuration } from '../core/sound'
+import { compositeFrame } from './composite'
+import { MUXER_URL, type MuxerModule, pickVideo, pickAudio, breathe, encodeAudio, waitForRoom } from './encoding'
 
+const FPS = 60
+
+/** Renders the whole timeline frame by frame, with its sound, into an MP4. */
 export async function startOfflineRecording(): Promise<void> {
-  const fps = 60
-  const durationSecs = Math.max(1, parseFloat(durInput.value) || 10)
-  const totalFrames = Math.round(durationSecs * fps)
-  const { x: ox, y: oy, w: cw, h: ch } = recState.cropBounds!
+  const totalFrames = Math.round(timelineDuration() * FPS)
+  const bounds = recState.cropBounds!
+  const { w: cw, h: ch } = bounds
 
   recBtn.dataset.rendering = '1'
   recBtn.classList.add('recording')
@@ -19,85 +23,86 @@ export async function startOfflineRecording(): Promise<void> {
   recBadge.classList.add('show')
 
   stopAnim()
+  const savedFrame = state.frame
 
   try {
-    let MuxerCls: new (opts: Record<string, unknown>) => { addVideoChunk: (...a: unknown[]) => void; finalize: () => void }
-    let ArrBufCls: new () => { buffer: ArrayBuffer }
-    let muxerOpts: Record<string, unknown>
-    let encoderCodec: string
-    let fileType: string
-    let fileExt: string
+    // Picked for the actual frame size: a fixed H.264 level can't encode large frames.
+    const video = await pickVideo(cw, ch, FPS)
+    if (!video) throw new Error(`This browser cannot encode ${cw}×${ch} video.`)
+    const audio = processedSound()
+    const sound = audio && await pickAudio(audio.sampleRate, audio.numberOfChannels)
 
-    const avcCheck = await (VideoEncoder as unknown as { isConfigSupported: (c: object) => Promise<{ supported: boolean }> })
-      .isConfigSupported({ codec: 'avc1.640028', width: cw, height: ch, bitrate: 20_000_000 })
+    const { Muxer, ArrayBufferTarget } = (await importCdn(MUXER_URL)) as unknown as MuxerModule
+    const target = new ArrayBufferTarget()
+    const muxer = new Muxer({
+      target,
+      fastStart: 'in-memory',
+      firstTimestampBehavior: 'offset',
+      video: { codec: video.muxer, width: cw, height: ch, frameRate: FPS },
+      ...(audio && sound && { audio: { codec: sound.muxer, numberOfChannels: audio.numberOfChannels, sampleRate: audio.sampleRate } }),
+    })
 
-    if (avcCheck.supported) {
-      const m = await importCdn('https://unpkg.com/mp4-muxer/build/mp4-muxer.mjs')
-      MuxerCls = m.Muxer as typeof MuxerCls
-      ArrBufCls = m.ArrayBufferTarget as typeof ArrBufCls
-      muxerOpts = { video: { codec: 'avc', width: cw, height: ch, frameRate: fps }, fastStart: 'in-memory' }
-      encoderCodec = 'avc1.640028'; fileType = 'video/mp4'; fileExt = 'mp4'
-    } else {
-      const m = await importCdn('https://unpkg.com/webm-muxer/build/webm-muxer.mjs')
-      MuxerCls = m.Muxer as typeof MuxerCls
-      ArrBufCls = m.ArrayBufferTarget as typeof ArrBufCls
-      muxerOpts = { video: { codec: 'V_VP9', width: cw, height: ch, frameRate: fps } }
-      encoderCodec = 'vp09.00.10.08'; fileType = 'video/webm'; fileExt = 'webm'
+    // Surfaced so the loop stops instead of waiting on a dead encoder.
+    let failure: Error | null = null
+    const onError = (e: Error) => { failure = e; console.error('Encoder:', e) }
+
+    if (audio && sound) {
+      const audioEncoder = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: onError })
+      audioEncoder.configure(sound.config)
+      encodeAudio(audio, audio.numberOfChannels, audioEncoder)
+      await audioEncoder.flush()
+      audioEncoder.close()
     }
 
-    const target = new ArrBufCls()
-    const muxer  = new MuxerCls({ target, ...muxerOpts })
-
-    const encoder = new VideoEncoder({
-      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-      error: e => console.error('VideoEncoder:', e),
-    })
-    encoder.configure({ codec: encoderCodec, width: cw, height: ch, bitrate: 20_000_000, framerate: fps })
+    const encoder = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: onError })
+    encoder.configure(video.config)
 
     buildParticles()
-    const savedFrame = state.frame
-    state.frame = 0; state._pixelSortTick = 0
+    state._pixelSortTick = 0
+    // Background videos are stepped to each frame's time so they stay in sync with the render.
+    const withVideo = hasVideo()
 
-    for (let f = 0; f < totalFrames; f++) {
-      state.frame = f + 1
+    for (let f = 0; f < totalFrames && !failure; f++) {
+      if (withVideo) await seekVideos(f / FPS)
+      state.frame = f
       renderSingleFrame()
-      recCtx.clearRect(0, 0, cw, ch)
-      recCtx.drawImage(mainCanvas, ox, oy, cw, ch, 0, 0, cw, ch)
-      recCtx.globalCompositeOperation = 'screen'
-      recCtx.drawImage(glitchCanvas, ox, oy, cw, ch, 0, 0, cw, ch)
-      recCtx.globalCompositeOperation = 'source-over'
+      compositeFrame(recCtx, bounds)
 
       const vf = new VideoFrame(recCanvas, {
-        timestamp: Math.round(f * 1_000_000 / fps),
-        duration:  Math.round(1_000_000 / fps),
+        timestamp: Math.round(f * 1_000_000 / FPS),
+        duration:  Math.round(1_000_000 / FPS),
       })
-      encoder.encode(vf, { keyFrame: f % (fps * 2) === 0 })
+      encoder.encode(vf, { keyFrame: f % (FPS * 2) === 0 })
       vf.close()
 
-      if (f % 20 === 0) {
+      // Do not render faster than the encoder can take frames.
+      await waitForRoom(encoder, () => !!failure)
+      if (f % 10 === 0) {
         recBtn.innerHTML = '⏳ &nbsp;' + Math.round(f / totalFrames * 100) + '%'
-        await new Promise(r => setTimeout(r, 0))
+        await breathe()
       }
     }
 
+    if (failure) throw failure
     await encoder.flush()
+    encoder.close()
+    if (failure) throw failure
     muxer.finalize()
 
-    const blob = new Blob([target.buffer], { type: fileType })
+    const blob = new Blob([target.buffer], { type: 'video/mp4' })
     recState.lastBlobUrl = URL.createObjectURL(blob)
     dlBtn.dataset.url = recState.lastBlobUrl
-    dlBtn.dataset.ext = fileExt
-    dlBtn.innerHTML = '⬇ &nbsp;DOWNLOAD ' + fileExt.toUpperCase()
+    dlBtn.dataset.ext = 'mp4'
+    dlBtn.innerHTML = '⬇ &nbsp;DOWNLOAD MP4' + (audio && !sound ? ' (no sound)' : '')
     dlBtn.style.display = ''
-    if (fileExt !== 'mp4') convertTipEl.style.display = ''
-
-    state.frame = savedFrame
-    startAnim()
-
+    convertTipEl.style.display = 'none'
   } catch (err) {
     console.warn('Offline render failed:', err)
+    alert('Recording failed: ' + (err instanceof Error ? err.message : String(err)))
   }
 
+  state.frame = savedFrame
+  startAnim()
   recBtn.innerHTML = '⏺ &nbsp;RECORD VIDEO'
   recBtn.classList.remove('recording')
   recBadge.classList.remove('show')

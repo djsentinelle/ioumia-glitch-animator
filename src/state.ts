@@ -35,7 +35,7 @@ export const cinemaHint    = document.getElementById('cinemaHint')    as HTMLEle
 
 // ── Mutable objects (mutated in place, never reassigned) ─────────
 export const settings: Settings = {
-  intensity: 5, speed: 4, size: 2, glitch: 3, sparkle: 5, density: 5, resolution: 100,
+  intensity: 5, speed: 4, size: 2, glitch: 3, sparkle: 5, density: 5, resolution: 100, overDrawing: 0,
 }
 
 export const tint: Tint = { r: 0, g: 0, b: 0 }

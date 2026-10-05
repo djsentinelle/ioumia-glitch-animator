@@ -23,6 +23,23 @@ function cellOffsets(w: number, h: number, step: number, keep: boolean): Uint8Ar
   return jitter
 }
 
+/** Where the drawing is: opaque where it has ink, so particles can be kept off it. */
+export const particleMask = document.createElement('canvas')
+
+function buildMask(data: Uint8ClampedArray, w: number, h: number): void {
+  particleMask.width = w
+  particleMask.height = h
+  const ctx = particleMask.getContext('2d')!
+  const out = ctx.createImageData(w, h)
+  for (let i = 0; i < data.length; i += 4) {
+    // Ink is anything visible and not near black, so a drawing on a black background works too.
+    const lum = Math.max(data[i], data[i + 1], data[i + 2])
+    const ink = Math.min(1, Math.max(0, (data[i + 3] - 10) / 40)) * Math.min(1, Math.max(0, (lum - 12) / 40))
+    out.data[i + 3] = Math.round(ink * 255)
+  }
+  ctx.putImageData(out, 0, 0)
+}
+
 /** keepMotion carries each particle's motion over to the one at the same spot (animated drawings). */
 export function buildParticles(keepMotion = false): void {
   const previous = keepMotion ? new Map(state.particles.map(p => [p.oy * 65536 + p.ox, p])) : null
@@ -32,6 +49,7 @@ export function buildParticles(keepMotion = false): void {
   scratch.height = h
   scratchCtx.drawImage(baseSource(), 0, 0, w, h)
   const data = scratchCtx.getImageData(0, 0, w, h).data
+  buildMask(data, w, h)
   const step = Math.max(1, Math.ceil(12 / settings.density))
   const offsets = cellOffsets(w, h, step, keepMotion)
   const cols = Math.ceil(w / step)

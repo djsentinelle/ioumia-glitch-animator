@@ -1,14 +1,19 @@
 import {
   state, settings, tint, fx, activeModes,
   mainCanvas, glitchCanvas, mCtx, gCtx,
-  playBtn, recBadge, _ar,
+  playBtn, _ar,
 } from '../state'
 import { applyMode } from '../effects'
-import { buildParticles } from './particles'
+import { buildParticles, particleMask } from './particles'
 import { renderBackgrounds, playVideos, pauseVideos } from './backgrounds'
 import { baseSource, syncGifFrame } from './base'
 import { clockTime, startClock, stopClock } from './clock'
 import { timelineDuration } from './sound'
+
+/** Share of a pixel-sorted run, at each end, that fades back into the original pixels. */
+const PIXEL_SORT_FADE = 0.35
+/** How strongly a sorted row spills onto the rows next to it. */
+const PIXEL_SORT_BLEED = 0.4
 
 /** How far, in pixels, a blown particle must travel to show fully. */
 const BLOW_VISIBLE_AT = 3
@@ -74,11 +79,31 @@ export function renderSingleFrame(): void {
           pixels.push({ r: d[i], g: d[i + 1], b: d[i + 2], a: d[i + 3],
                         lum: 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] })
         }
+        const original = pixels.slice()
         pixels.sort((a, b) => a.lum - b.lum)
+        // The sorted run fades into the untouched pixels at both ends, so the streak
+        // diffuses out instead of stopping on a hard edge.
+        const length = end - segStart
+        const fade = Math.max(1, length * PIXEL_SORT_FADE)
         for (let x = segStart; x < end; x++) {
           const i = base + x * 4
-          const px = pixels[x - segStart]
-          d[i] = px.r; d[i + 1] = px.g; d[i + 2] = px.b; d[i + 3] = px.a
+          const k = x - segStart
+          const edge = Math.min(k + 0.5, length - k - 0.5) / fade
+          const t = edge >= 1 ? 1 : edge * edge * (3 - 2 * edge)
+          const px = pixels[k], og = original[k]
+          d[i]     = og.r + (px.r - og.r) * t
+          d[i + 1] = og.g + (px.g - og.g) * t
+          d[i + 2] = og.b + (px.b - og.b) * t
+          d[i + 3] = og.a + (px.a - og.a) * t
+          // A softer copy on the rows above and below, so the streak has no hard top or bottom.
+          const bleed = t * PIXEL_SORT_BLEED
+          for (const n of [i - w * 4, i + w * 4]) {
+            if (n < 0 || n >= d.length) continue
+            d[n]     += (d[i]     - d[n])     * bleed
+            d[n + 1] += (d[i + 1] - d[n + 1]) * bleed
+            d[n + 2] += (d[i + 2] - d[n + 2]) * bleed
+            d[n + 3] += (d[i + 3] - d[n + 3]) * bleed
+          }
         }
         segStart = -1
       }
@@ -189,12 +214,30 @@ export function renderSingleFrame(): void {
   }
 
   gCtx.globalAlpha = 1
+  // Particles are kept off the drawing, where they would only speckle it, and show where they
+  // leave it: at its edges and around it. "over drawing" lets some of them back on.
+  const keepOff = 1 - settings.overDrawing / 10
+  if (keepOff > 0) {
+    gCtx.globalCompositeOperation = 'destination-out'
+    gCtx.globalAlpha = keepOff
+    gCtx.drawImage(particleMask, 0, 0)
+    gCtx.globalCompositeOperation = 'source-over'
+    gCtx.globalAlpha = 1
+  }
 }
+
+let lastFrame = -1
 
 function loop(): void {
   state.animId = requestAnimationFrame(loop)
-  state.frame = Math.round(clockTime() * 60)
-  renderSingleFrame()
+  const frame = Math.round(clockTime() * 60)
+  // One render per 60th of a second, as in exports: rain and blow move a step per render,
+  // so a 120 or 144 Hz screen would otherwise run them faster than the exported video.
+  if (frame !== lastFrame) {
+    lastFrame = frame
+    state.frame = frame
+    renderSingleFrame()
+  }
   frameListener()
 }
 
@@ -202,10 +245,10 @@ export function startAnim(): void {
   state.isPlaying = true
   playBtn.textContent = '■  STOP'
   playBtn.classList.add('active')
-  recBadge.classList.add('show')
   buildParticles()
   playVideos()
   startClock((state.frame / 60) % timelineDuration())
+  lastFrame = -1
   loop()
 }
 
@@ -214,7 +257,6 @@ export function stopAnim(): void {
   cancelAnimationFrame(state.animId)
   playBtn.textContent = '▶  PLAY'
   playBtn.classList.remove('active')
-  recBadge.classList.remove('show')
   stopClock()
   pauseVideos()
   renderBackgrounds()

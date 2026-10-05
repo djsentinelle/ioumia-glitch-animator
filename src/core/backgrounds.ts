@@ -26,6 +26,8 @@ export interface BgLayer {
   name: string
   opacity: number
   grade: Record<GradeKey, number>
+  /** The layer's file, which exports decode videos from. */
+  file: File | null
   /** A video's own sound, mixed into the track. Fades are at the start and end of the timeline. */
   audio: AudioBuffer | null
   volume: number
@@ -38,8 +40,11 @@ const neutralGrade = (): Record<GradeKey, number> =>
 
 export const bgLayers: BgLayer[] = [0, 1].map(() => ({
   media: null, url: null, name: '', opacity: 100, grade: neutralGrade(),
-  audio: null, volume: 100, fadeIn: 0, fadeOut: 0,
+  file: null, audio: null, volume: 100, fadeIn: 0, fadeOut: 0,
 }))
+
+/** During an export, the decoded video frame to draw for each layer instead of its <video>. */
+export const exportFrames: (VideoFrame | null)[] = bgLayers.map(() => null)
 
 /** How the drawing sits on the backgrounds. 'screen' lets a black background show them through. */
 export const bgSettings = { blend: 'source-over' as 'source-over' | 'screen' }
@@ -84,7 +89,7 @@ function wash(amount: number, positive: string, negative: string, w: number, h: 
 export function renderBackgrounds(): void {
   const w = bgCanvas.width, h = bgCanvas.height
   bgCtx.clearRect(0, 0, w, h)
-  for (const layer of bgLayers) {
+  for (const [i, layer] of bgLayers.entries()) {
     if (!layer.media || layer.opacity <= 0) continue
     const [mw, mh] = mediaSize(layer.media)
     if (!mw || !mh) continue
@@ -98,7 +103,8 @@ export function renderBackgrounds(): void {
     const dw = mw * scale, dh = mh * scale
     layerCtx.clearRect(0, 0, w, h)
     layerCtx.filter = cssFilter(layer.grade)
-    const source = isGif(layer.media) ? layer.media.frames[gifFrameIndex(layer.media, animTime())] : layer.media
+    const source = exportFrames[i]
+      ?? (isGif(layer.media) ? layer.media.frames[gifFrameIndex(layer.media, animTime())] : layer.media)
     layerCtx.drawImage(source, (w - dw) / 2, (h - dh) / 2, dw, dh)
     layerCtx.filter = 'none'
     wash(layer.grade.temperature, 'rgb(255,140,40)', 'rgb(40,120,255)', w, h)
@@ -159,6 +165,7 @@ export function loadBackground(index: number, file: File, isPlaying: boolean, on
   clearBackground(index)
   layer.url = URL.createObjectURL(file)
   layer.name = file.name
+  layer.file = file
 
   if (isVideo) {
     const video = document.createElement('video')
@@ -205,5 +212,6 @@ export function clearBackground(index: number): void {
   layer.media = null
   layer.url = null
   layer.name = ''
+  layer.file = null
   layer.audio = null
 }

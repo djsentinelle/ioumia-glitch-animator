@@ -4,12 +4,16 @@ import {
 } from '../state'
 import { renderSingleFrame, startAnim, stopAnim } from '../core/renderer'
 import { buildParticles } from '../core/particles'
-import { hasVideo, seekVideos } from '../core/backgrounds'
+import { bgLayers, exportFrames, seekVideos } from '../core/backgrounds'
+import { openFrameSource, type FrameSource } from '../core/videoFrames'
 import { processedSound, timelineDuration } from '../core/sound'
 import { compositeFrame } from './composite'
-import { MUXER_URL, type MuxerModule, pickVideo, pickAudio, breathe, encodeAudio, waitForRoom } from './encoding'
+import { MUXER_URL, type MuxerModule, pickVideo, frameOptions, pickAudio, breathe, encodeAudio, waitForRoom } from './encoding'
 
 const FPS = 60
+// Particles and glitches are fine detail that moves every frame; at an ordinary bitrate the
+// encoder smooths them away and the video no longer looks like the canvas. 14 is close to lossless.
+const QUANTIZER = 14
 
 /** Renders the whole timeline frame by frame, with its sound, into an MP4. */
 export async function startOfflineRecording(): Promise<void> {
@@ -24,10 +28,11 @@ export async function startOfflineRecording(): Promise<void> {
 
   stopAnim()
   const savedFrame = state.frame
+  let sources: (FrameSource | null)[] = []
 
   try {
     // Picked for the actual frame size: a fixed H.264 level can't encode large frames.
-    const video = await pickVideo(cw, ch, FPS)
+    const video = await pickVideo(cw, ch, FPS, { quantizer: QUANTIZER, bitsPerPixel: 0.2 })
     if (!video) throw new Error(`This browser cannot encode ${cw}×${ch} video.`)
     const audio = processedSound()
     const sound = audio && await pickAudio(audio.sampleRate, audio.numberOfChannels)
@@ -59,11 +64,18 @@ export async function startOfflineRecording(): Promise<void> {
 
     buildParticles()
     state._pixelSortTick = 0
-    // Background videos are stepped to each frame's time so they stay in sync with the render.
-    const withVideo = hasVideo()
+    // Background videos are decoded in order, frame by frame, in step with the render.
+    // A video that can't be (not MP4 or MOV) is sought to each frame instead, which is slower.
+    sources = await Promise.all(bgLayers.map(l =>
+      l.media instanceof HTMLVideoElement && l.file ? openFrameSource(l.file) : Promise.resolve(null)))
+    const mustSeek = bgLayers.some((l, i) => l.media instanceof HTMLVideoElement && !sources[i])
 
     for (let f = 0; f < totalFrames && !failure; f++) {
-      if (withVideo) await seekVideos(f / FPS)
+      if (mustSeek) await seekVideos(f / FPS)
+      for (const [i, source] of sources.entries()) {
+        const video = bgLayers[i].media
+        if (source && video instanceof HTMLVideoElement) exportFrames[i] = await source.frameAt(f / FPS, video.duration)
+      }
       state.frame = f
       renderSingleFrame()
       compositeFrame(recCtx, bounds)
@@ -72,7 +84,7 @@ export async function startOfflineRecording(): Promise<void> {
         timestamp: Math.round(f * 1_000_000 / FPS),
         duration:  Math.round(1_000_000 / FPS),
       })
-      encoder.encode(vf, { keyFrame: f % (FPS * 2) === 0 })
+      encoder.encode(vf, frameOptions(video, f % (FPS * 2) === 0))
       vf.close()
 
       // Do not render faster than the encoder can take frames.
@@ -101,6 +113,8 @@ export async function startOfflineRecording(): Promise<void> {
     alert('Recording failed: ' + (err instanceof Error ? err.message : String(err)))
   }
 
+  exportFrames.fill(null)
+  sources.forEach(s => s?.close())
   state.frame = savedFrame
   startAnim()
   recBtn.innerHTML = '⏺ &nbsp;RECORD VIDEO'

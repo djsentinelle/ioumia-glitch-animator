@@ -51,6 +51,8 @@ function syncLayer(el: HTMLElement, layer: BgLayer): void {
   slot.textContent = layer.name || PROMPT
   slot.classList.toggle('loaded', !!layer.media)
   el.querySelector<HTMLButtonElement>('.bg-remove')!.hidden = !layer.media
+  el.querySelector<HTMLInputElement>('[data-opacity]')!.value = String(layer.opacity)
+  el.querySelector('[data-opacity-val]')!.textContent = String(layer.opacity)
   el.querySelector<HTMLElement>('[data-sound]')!.hidden = !layer.audio
   el.querySelector<HTMLInputElement>('[data-volume]')!.value = String(layer.volume)
   el.querySelector('[data-volume-val]')!.textContent = String(layer.volume)
@@ -189,10 +191,30 @@ export function pickBlendForDrawing(): void {
   setBlend(opaque ? 'screen' : 'source-over')
 }
 
+/**
+ * Puts the front background behind and the back one in front. The layers' contents are
+ * swapped rather than the layers themselves, which each panel block keeps a hold of.
+ */
+function swapLayers(blocks: HTMLElement[]): void {
+  const [back, front] = bgLayers
+  const moved = { ...back, grade: { ...back.grade } }
+  Object.assign(back, front, { grade: { ...front.grade } })
+  Object.assign(front, moved)
+  ;[layerFiles[0], layerFiles[1]] = [layerFiles[1], layerFiles[0]]
+  blocks.forEach((el, i) => syncLayer(el, bgLayers[i]))
+  refresh()
+  dirty()
+}
+
 export function initBackgrounds(): void {
   const container = document.getElementById('bgLayers')!
-  container.innerHTML = bgLayers.map((_, i) => layerHtml(i)).join('')
-  container.querySelectorAll<HTMLElement>('.bg-layer').forEach((el, i) => bindLayer(el, i))
+  const [back, front] = bgLayers.map((_, i) => layerHtml(i))
+  container.innerHTML = back +
+    '<button type="button" class="btn quiet bg-swap" id="bgSwap" title="put the front background behind">⇅ swap backgrounds</button>' +
+    front
+  const blocks = [...container.querySelectorAll<HTMLElement>('.bg-layer')]
+  blocks.forEach((el, i) => bindLayer(el, i))
+  document.getElementById('bgSwap')!.addEventListener('click', () => swapLayers(blocks))
   blendBtns().forEach(b => b.addEventListener('click', () => setBlend(b.dataset.blend as typeof bgSettings.blend)))
   setBlend(bgSettings.blend)
 }

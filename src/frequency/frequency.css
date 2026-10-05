@@ -1,0 +1,47 @@
+.freq-stage {
+  flex: 1; min-height: 0; width: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+/* Sits above the page-wide scanline overlay (z-index 1000) so the image is shown as it will export. */
+#freqCanvas { max-width: 100%; max-height: 100%; display: block; border-radius: 4px; position: relative; z-index: 1001; }
+#freqCanvas[hidden], .freq-hint[hidden] { display: none; }
+
+.freq-hint {
+  width: 100%; max-width: 800px; aspect-ratio: 4/3; max-height: 100%;
+  border: 1px solid rgba(0,255,180,0.3); border-radius: 4px; background: rgba(0,255,180,0.02);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  transition: border-color 0.2s;
+}
+body.dragging .freq-hint, body.dragging .file-slot { border-color: #00ffb4; }
+
+.file-field { display: flex; flex-direction: column; gap: 6px; }
+.file-slot {
+  width: 100%; padding: 14px 10px; background: rgba(0,255,180,0.02); cursor: pointer;
+  border: 1px dashed rgba(0,255,180,0.3); border-radius: 2px; color: rgba(0,255,180,0.6);
+  font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: border-color 0.2s, color 0.2s;
+}
+.file-slot:hover, .file-slot:focus-visible { border-color: #00ffb4; color: #00ffb4; outline: none; }
+.file-slot.loaded { border-style: solid; border-color: #00ffb4; color: #fff; text-transform: none; }
+.file-error { font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 1px; color: #ff2d78; }
+.file-error:empty { display: none; }
+.file-field audio { width: 100%; height: 32px; }
+
+.freq-note { font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 1.5px; color: rgba(0,255,180,0.5); text-transform: uppercase; }
+#rangeLabel { color: rgba(0,255,180,0.6); text-transform: none; }
+
+/* Two range inputs stacked on one track: only the thumbs take pointer events. */
+.range-dual { position: relative; height: 14px; --lo: 0; --hi: 1; }
+.range-dual::before, .range-fill { content: ''; position: absolute; top: 6px; height: 2px; border-radius: 1px; }
+.range-dual::before { left: 0; right: 0; background: rgba(0,255,180,0.2); }
+.range-fill {
+  left: calc(6px + (100% - 12px) * var(--lo)); right: calc(6px + (100% - 12px) * (1 - var(--hi)));
+  background: #00ffb4;
+}
+.range-dual input[type="range"] {
+  position: absolute; top: 6px; left: 0; width: 100%; margin: 0; background: none; pointer-events: none;
+}
+.range-dual input[type="range"]::-webkit-slider-thumb { pointer-events: auto; }
+.range-dual input[type="range"]::-moz-range-thumb { pointer-events: auto; }
+.freq-note:empty { display: none; }
+#exportStatus { text-transform: none; line-height: 1.5; }

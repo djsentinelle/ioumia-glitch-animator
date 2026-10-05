@@ -149,7 +149,7 @@ header {
 }
 .drop-zone:hover { border-color: var(--lavender); }
 .drop-zone.has-image { border-color: transparent; }
-.drop-icon { font-family: var(--pixel); font-size: 40px; line-height: 1; color: var(--teal); }
+.drop-icon { display: block; height: 140px; width: auto; mix-blend-mode: screen; pointer-events: none; user-select: none; }
 .drop-text { font-family: var(--pixel); font-size: 22px; line-height: 1; color: var(--ink); text-transform: lowercase; text-align: center; }
 .drop-text.is-hint { font-size: 17px; color: var(--muted); }
 

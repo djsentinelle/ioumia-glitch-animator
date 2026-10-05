@@ -5,6 +5,7 @@ export function initSliders(): void {
   bindSlider('sizeSlider',    'sizeVal',    'size')
   bindSlider('glitchSlider',  'glitchVal',  'glitch')
   bindSlider('densitySlider', 'densityVal', 'density')
+  bindSlider('overDrawingSlider', 'overDrawingVal', 'overDrawing')
 
   ;(document.getElementById('resolutionSlider') as HTMLInputElement).addEventListener('input', function () {
     settings.resolution = parseInt(this.value)

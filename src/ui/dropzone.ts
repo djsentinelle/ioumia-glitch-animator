@@ -33,7 +33,7 @@ export function initDropzone(): void {
     const files = (e.target as HTMLInputElement).files
     if (files?.[0]) loadFile(files[0])
   })
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = '#00ffb4' })
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = '#c3b3ec' })
   dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '' })
   dropZone.addEventListener('drop', e => {
     e.preventDefault()
